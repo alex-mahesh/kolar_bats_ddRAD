@@ -1,0 +1,114 @@
+## to count the number of fastq.gz files in folder
+ls *.fastq.gz | wc -l
+
+# to go one folder back
+cd .. 
+
+#Go two folders back:
+cd ../..
+
+#Go back to your home directory:
+cd ~
+
+# for H.hypophyllus we have 23 samples, H.durgadasi- 22 samples, H.speoris -29 samples
+
+#To find the size of a .fastq.gz file on a Linux server, use the following command.
+ls -lh sample.fastq.gz
+
+##Output example: -rwxrwxr-x 1 alex alex 181M Dec  1 14:00 40107401883_L001_R1_001.fastq.gz
+# - → this is a regular file (not a directory)
+# rwx → owner (alex) can read, write, and execute
+# rwx → group (alex) can read, write, and execute
+# r-x → others can read and execute, but cannot write
+# 1 -This file has one link (normal for most files)
+# alex -The user who owns the file
+# alex -The group that owns the file
+# 181M -The compressed size of the file. Since it’s .fastq.gz, this is not the actual sequence data size after decompression
+# Dec  1 14:00 -The file was last modified on December 1 at 14:00
+# File name -40107401883_L001_R1_001.fastq.gz  
+# Typical Illumina naming: L001 → Lane 1 ; R1 → Read 1 (forward read) 
+# .fastq.gz → compressed FASTQ file. This suggests paired-end data, and there should be a corresponding: 40107401883_L001_R2_001.fastq.gz
+
+# Compressed size (.fastq.gz) ≠ actual read data size. To estimate uncompressed size:
+gzip -l sample.fastq.gz
+
+# to count total number of nucleotides in a single sample.
+zcat sample.fastq.gz | awk 'NR % 4 == 2 { bases += length($0) } END { print bases }'
+#This counts only the sequence lines (every 4th line, starting at line 2).
+
+# to count the number of reads in a sample.
+zcat sample.fastq.gz | wc -l | awk '{print $1/4}'
+
+# to view a fastq.gz file
+zcat sample.fastq.gz | head
+
+# to find read length. Here we get the read length of the first read.
+zcat sample.fastq.gz | awk 'NR==2 { print length($0) }'
+
+# installing ipyrad
+conda create -n ipyrad -c bioconda ipyrad
+
+# to check the size of the folders
+du -sh Hipposideros_durgadasi Hipposideros_hypophyllus Hipposideros_speoris
+# 13GB- Hipposideros_durgadasi; 6.9GB- Hipposideros_hypophyllus; 8.7GB- Hipposideros_speoris
+
+# 1. making a folder named "ipyrad_ddrad" within the "ddRAD" folder 
+# 2. making a folder named "fastqs" within 'ipyrad_ddrad' for fastq files.
+
+# 3. open the "fastqs" folder and copy all the fastq.gz files into it.
+find ../../Hipposideros_* -type f -name "*.fastq.gz" -exec cp {} . \;
+# 4. activate ipyrad
+conda activate ipyrad
+# 5. in the "ipyrad_ddrad" folder, I created a parameters file called "kolarbats"
+ipyrad -n kolarbats
+//  "params-kolarbats.txt" file gets created.
+
+# 6. editng parameters file.
+nano params-hipposideros_ddrad.txt // the parameteres file gets opened.
+ctrl O // allows us to make edits to .txt file
+ctrl X // exits the text editor.
+
+#changes being made: 
+/home/alex/ddRAD/ipyrad_ddrad/fastqs/*.fastq.gz // [4] sorted_fastq_path
+ddRAD // [7] data type
+TGCAG, TAA // [8] restriction overhang
+0.9 //[14] clustering threshold for denovo assembly
+* //[27] output format
+
+#7. loading and pairing data
+ipyrad -p params-hipposideros_ddrad.txt -s 1 -c 8
+// kolarbats.json;  kolarbats_s1_demultiplex_stats.txt - these two files get generated.
+
+# 8. Quality filering and trimming
+ipyrad -p params-kolarbats.txt -s 2 -c 8
+// kolarbats_edits -this folder gets created
+
+# 9. clustering within samples
+ipyrad -p params-koalrbats.txt -s 3 -c 50
+//carried out this step using screen command as it was taking too much time.
+conda activate screen
+screen -S screen1 // here screen1 is the name of the screen, it can be anything.
+screen -r screen_name // this is to reattach to the screen after exiting from it.
+// once you are inside the screen - CTRL A+D to detach from the screen
+//                                - CTRL D to exit. This stops the analysis and screen gets closed
+//kolarbats_clust_0.9 -this folder gets generated // check in which step this folder got generated- kolarbats-tmpalign
+
+#10. Estimating error rates and heterozygosity
+ipyrad -p params-kolarbats.txt -s 4 -c 50
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
