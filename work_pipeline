@@ -1,4 +1,7 @@
+10.58.98.14 // this is the NAS server, where data is backed up
+
 ## to count the number of fastq.gz files in folder
+
 ls *.fastq.gz | wc -l
 
 # to go one folder back
