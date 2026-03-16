@@ -99,9 +99,16 @@ screen -r screen_name // this is to reattach to the screen after exiting from it
 #10. Estimating error rates and heterozygosity
 ipyrad -p params-kolarbats.txt -s 4 -c 50
 
+#installing screeen( this was done in the new server)
+conda install -c conda-forge screen
 
+#the code to transfer the ddRAD files from NAS back to my server.
+scp -r poodl@10.58.98.14:/volume1/datastorage/Alex/ddRAD ~/
 
-
+# to get information about the CPU
+lscpu
+# to get information about ram // find out what does threads mean
+df -h
 
 
 
