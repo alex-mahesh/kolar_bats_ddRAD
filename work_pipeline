@@ -11,6 +11,10 @@ cd ..
 cd ../..
 
 #Go back to your home directory:
+
+#to cancel a command that is being run:
+Ctrl + C
+
 cd ~
 
 # for H.hypophyllus we have 23 samples, H.durgadasi- 22 samples, H.speoris -29 samples
@@ -88,19 +92,28 @@ ipyrad -p params-kolarbats.txt -s 2 -c 8
 
 # 9. clustering within samples
 ipyrad -p params-koalrbats.txt -s 3 -c 50
+#######
 //carried out this step using screen command as it was taking too much time.
 conda activate screen
 screen -S screen1 // here screen1 is the name of the screen, it can be anything.
 screen -r screen_name // this is to reattach to the screen after exiting from it.
 // once you are inside the screen - CTRL A+D to detach from the screen
 //                                - CTRL D to exit. This stops the analysis and screen gets closed
+
+screen -r
+👉 This will reconnect you to your previous session only if there is one screen which is open
+screen -r 12345
+// if multiple screens are open use the above command; this will be detached screen "12345.my_session   (Detached)"
+
+
 //kolarbats_clust_0.9 -this folder gets generated // check in which step this folder got generated- kolarbats-tmpalign
 
 #10. Estimating error rates and heterozygosity
 ipyrad -p params-kolarbats.txt -s 4 -c 50
 
 #installing screeen( this was done in the new server)
-conda install -c conda-forge screen
+conda install -c conda-forge screen // this dosent seem to be working, so i have installed screen again
+conda create -n screen -c conda-forge -c bioconda screen // this code was used
 
 #the code to transfer the ddRAD files from NAS back to my server.
 scp -r poodl@10.58.98.14:/volume1/datastorage/Alex/ddRAD ~/
@@ -111,14 +124,339 @@ lscpu
 df -h
 
 
+40307400025-198-NCGM-2134RE_L001_R2_001.fastq.gz // this sequence is extra in H.hypophylus ddRAD folder.
+cp Hipposideros_hypophyllus/forward_seq/40107401868_L001_R1_001.fastq.gz ipyrad/fastqs/  # copying the fastq.gz file to another folder named fastqs
 
+rm -r kolarbats-tmpalign // deletes the folder 'kolarbats-tmpalign' and all the files within it.
 
+mv ipyrad_ddrad analysis // changes the folder name from ipyrad_ddrad to "analysis".
 
+############################################################################################
+starting the ddRAD data analysis using whole genome resequencing analysis pipeline
 
+#installing fastqc, #creating new conda environment
+conda create -n fastqc -c bioconda fastqc 
 
+## running fastqc for all the samples // this was run on screen( I dont have to activate Screen, I just need to type the command directly)
+fastqc *.fastq.gz
 
+#for simplicity; you can transfer all the .zip files in a global zip folder and all the .html files in a global html folder.
 
+mkdir zip_files html_files #"zip_files" and "html_files" directories would be created
+mv *.zip zip_files/ #all the .zip files would be moved to "zip_files"
+mv *.html html_files/ #all the .html files would be moved to "html_files"
 
+#### Trimming the adaptors
 
+for file in *_R1_001.fastq.gz; do     trim_galore --paired "$file" "${file/_R1_001.fastq.gz/_R2_001.fastq.gz}"; done
+
+// i had to make changes to the file names
+##performing quality cut off '-q20' and trimming adapter sequence AGATCGGAAGAGC // this message gets shown
+-q 20 → remove unreliable bases
+AGATCGGAAGAGC → remove leftover adapter sequence
+Result → clean, high-quality reads
+
+## counting only the files within a folder and not any folders
+find . -maxdepth 1 -type f | wc -l
+
+//-type f → only files
+//-maxdepth 1 → only current folder
+
+##### creating an environment for aira 2
+conda create -n aria2 -c conda-forge -c bioconda aria2
+################################################################################
+Read mapping
+made a folder named read_mapping with in the 'analysis' folder
+# dowloading the refernce genome using aria2
+aria2c -x 8 -s 8 https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/031/876/335/GCA_031876335.1_mHipLar1.pri/GCA_031876335.1_mHipLar1.pri_genomic.fna.gz
+
+//-x 8	8 connections per server
+//-s 8	split download into 8 parts; This makes the download much faster
+// there were multiple files in the NCBI website, but I am only downloading the .fna.gz file
+// file got dowloaded in 3 mins
+
+# installing bwa
+onda create -n bwa -c bioconda bwa
+
+gunzip GCA_031876335.1_mHipLar1.pri_genomic.fna.gz // to unzip the genomic file
+// we get a .fna file. The initial .fna.gz file is replaced
+#checking if the downloaded genome is good
+ls -lh GCA_031876335.1_mHipLar1.pri_genomic.fna // this gives us the size of the file, we can check it to figure out if the whole genome has been downloaded.
+
+# indexing the refernce genome
+bwa index GCA_031876335.1_mHipLar1.pri_genomic.fna
+// started at 4.30 pm 
+When you sequence DNA, you get millions of short reads like:
+
+ACTGATCG
+GTCGATCG
+ATCGTAAA
+
+👉 On their own, these reads:
+
+have no positional information
+are just fragments
+
+Alignment (using tools like BWA) answers:
+
+“Where in the genome did each read come from?”
+
+🧬 Why we align to a reference genome
+1. 📍 To determine genomic location
+
+Alignment maps each read to a specific position:
+
+Reference:   ACTGATCGATCGATCG
+Read:            GATCGATC
+
+👉 Now you know:
+
+exact location
+genomic context
+2. 🧬 To detect variants (SNPs, mutations)
+
+Once aligned, you can compare:
+
+Reference: ACTGATCG
+Read:      ACTGATGG
+                ↑ difference
+
+👉 This difference = SNP (mutation)
+
+Without alignment:
+❌ you cannot detect variants
+
+3. 📊 To measure coverage
+
+Alignment tells you:
+
+how many reads cover each position
+
+👉 Useful for:
+
+confidence in variant calls
+identifying low-quality regions
+4. 🧪 To filter bad reads
+
+Reads that:
+
+don’t align
+align poorly
+
+👉 are often:
+
+sequencing errors
+contaminants
+5. 🧬 To reconstruct the genome context
+
+Alignment allows you to:
+
+group reads by genomic region
+analyze genes, loci, or RAD tags
+6. 🧬 Essential for downstream analyses
+
+Alignment is required before:
+
+variant calling (VCF generation)
+population genetics (like your VCFtools work)
+phylogenetics
+selection analysis
+🧬 In your workflow (important)
+
+You are doing:
+
+trimming → cleaning reads
+alignment → mapping reads
+variant calling → finding SNPs
+
+👉 Alignment is the bridge step between raw data and biological interpretation
+
+⚠️ What happens if you don’t align?
+
+You just have:
+
+Millions of random sequences
+
+👉 You cannot:
+
+find mutations
+compare individuals
+do population analysis
+💡 Simple analogy
+
+Think of:
+
+reads = puzzle pieces
+reference genome = completed picture
+
+👉 Alignment = placing each piece in the correct spot
+
+⚡ Summary
+
+We align reads to:
+
+📍 know where they came from
+🧬 detect genetic variation
+📊 assess data quality
+🔬 enable all downstream analysis
+###########################################################################
+1. .bwt → Burrows-Wheeler Transform (core index)
+
+👉 This is the main data structure
+
+Stores a transformed version of the genome
+Enables fast substring matching
+Based on the Burrows–Wheeler transform
+
+💡 Think of it as:
+
+A compressed, searchable version of your genome
+
+2. .sa → Suffix Array
+
+👉 Helps locate positions in the genome
+
+Maps matches back to actual coordinates
+Works together with .bwt
+
+💡 Analogy:
+
+.bwt finds the match, .sa tells you where it is
+
+3. .pac → Packed sequence
+
+👉 Stores the genome in a compressed binary format
+
+Each base (A, T, G, C) stored efficiently
+Used internally during alignment
+
+⚠️ This is the file that caused your earlier error
+→ so it’s critical that this file is complete
+
+4. .ann → Annotation file (sequence metadata)
+
+👉 Contains:
+
+number of sequences (chromosomes/scaffolds)
+their lengths
+their names
+
+💡 Example:
+
+chr1 = 200 Mb, chr2 = 180 Mb, etc.
+
+5. .amb → Ambiguous regions
+
+👉 Tracks regions with:
+
+Ns (unknown bases)
+ambiguous nucleotides
+
+💡 Helps BWA:
+
+avoid unreliable alignments in these regions
+🧠 How they work together
+
+When you run:
+
+bwa mem reference.fna reads.fastq.gz
+
+BWA:
+
+Uses .bwt → quickly finds possible matches
+Uses .sa → maps matches to genome positions
+Uses .pac → retrieves actual sequence
+Uses .ann → understands chromosome structure
+Uses .amb → handles uncertain regions
+These files are automatically generated → you don’t edit them
+They must all be present for alignment to work
+If even one is corrupted → alignment fails
+⚡ Key takeaway
+
+👉 These files convert your genome into a fast-searchable format, making alignment feasible in minutes instead of days.
+
+######## Mapping the validated, trimmed fq.gz files to the reference genome ( started at 11.30 am -
+
+_L001_R1_001_val_1.fq.gz // this is common for all files
+_L001_R2_001_val_2.fq.gz // this is common for all file names
+GCA_031876335.1_mHipLar1.pri_genomic.fna // name of the reference genome
+
+for file1 in ../fastqs/*_L001_R1_001_val_1.fq.gz; do
+    file2=${file1/_L001_R1_001_val_1.fq.gz/_L001_R2_001_val_2.fq.gz}
+    sample_name=$(basename "$file1" _L001_R1_001_val_1.fq.gz)
+    
+    bwa mem GCA_031876335.1_mHipLar1.pri_genomic.fna "$file1" "$file2" > "${sample_name}_aligned_reads.sam"
+done
+
+parent_folder/
+│
+├── fastqs/
+│   ├── sample1_sub_1_val_1.fq.gz
+│   ├── sample1_sub_2_val_2.fq.gz
+│
+└── read_mapping/
+    └── (you run script here) // I am running the script in readmapping folder, but my val.fq.gz files are in fastqs folder. so I have to give the path to those files.
+
+🧬 What happens right after mapping?
+
+When you run a mapper like BWA, it processes your reads one by one in the order they appear in the FASTQ file.
+
+Example FASTQ order:
+read_1
+read_2
+read_3
+read_4
+...
+
+BWA takes:
+
+read_1 → aligns it somewhere in genome
+read_2 → aligns it somewhere else
+read_3 → another location
+
+👉 It does NOT rearrange them after alignment
+
+🔀 What the output looks like (unsorted BAM/SAM)
+
+Even though reads map to very different positions, the output stays in input order:
+
+read_1 → chr5:2000
+read_2 → chr1:100
+read_3 → chr3:500
+read_4 → chr1:150
+
+👉 Notice:
+
+chr5 → chr1 → chr3 → chr1
+completely random genomic order
+
+This is what we mean by:
+
+“stored in the order they were processed”
+
+❗ Why does BWA do this?
+
+Because:
+
+it’s faster
+it avoids holding everything in memory
+it streams results directly to output
+
+👉 Rearranging (sorting) is a separate, expensive step
+
+📍 What we want instead (after sorting)
+
+After sorting, the same reads become:
+
+chr1:100   (read_2)
+chr1:150   (read_4)
+chr3:500   (read_3)
+chr5:2000  (read_1)
+
+Now:
+
+all reads are grouped by chromosome
+ordered by position
+👉 Sorting organizes reads by genomic position so that indexing, fast access, and downstream analyses work correctly and efficiently.
 
 
