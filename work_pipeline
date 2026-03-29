@@ -459,4 +459,19 @@ all reads are grouped by chromosome
 ordered by position
 👉 Sorting organizes reads by genomic position so that indexing, fast access, and downstream analyses work correctly and efficiently.
 
+// 40107401909_aligned_reads.sam ## once mapping is done we will get an alligned_reads.sam file for each of the sample(i.e both the reads combined)
+
+######### sorting the reads and converting sam file to BAM file
+conda create -n samtools -c bioconda samtools
+conda activate samtools
+// creating an environment for samtools
+
+for file in *.sam; do 
+    samtools view -S -b "$file" | samtools sort -o "${file%.sam}_sorted.bam"
+done
+
+
+
+
+
 
