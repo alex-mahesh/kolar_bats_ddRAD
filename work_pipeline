@@ -469,8 +469,20 @@ conda activate samtools
 for file in *.sam; do 
     samtools view -S -b "$file" | samtools sort -o "${file%.sam}_sorted.bam"
 done
+//*_aligned_reads_sorted.bam - we get this file for each of the sample.
 
+#### Indexing the sorted BAM files#### (i have skipped the mark duplicate step in the pipe line)
 
+for file in *_aligned_reads_sorted.bam; do
+samtools index "$file"
+done
+
+_aligned_reads_sorted.bam.bai // we get this file for each of the samples
+screen -r indexingbam //code to get back into a screen named indexingbam
+
+#########  estimating sequencing statistics like coverage per chromosome/scaffold###
+
+ qualimap bamqc -bam *_aligned_reads_sorted.bam -outdir qualimap_results -outformat HTML
 
 
 
