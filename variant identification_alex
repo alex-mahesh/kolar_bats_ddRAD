@@ -3,3 +3,17 @@ i have a foler which has sorted and indexed bam files of 72 samples.
 # to count the no of bam.bai files
 ls *_aligned_reads_sorted.bam.bai | wc -l
 
+##we need to have .fai file for the refrence genome. So indexing to generate .fai file
+samtools faidx GCA_031876335.1_mHipLar1.pri_genomic.fna
+// .fai file gets created
+
+## creating a list of all the .bam files. This is important for processing all the .bam files simultaniously
+ls *_aligned_reads_sorted.bam > bamlist.txt
+//bamlist.txt this file gets created
+
+## creating a conda environment for bcftools
+conda install -c conda-forge -c bioconda bcftools
+//conda create -n bcftools -c bioconda bcftools
+
+screen -S variant //creating a screen for running variant identification 
+
