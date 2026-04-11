@@ -1,1 +1,183 @@
+## Inspecting the Reference Genome
 
+Before performing variant calling, it is important to understand the structure of your reference genome. The following commands were used to inspect the FASTA headers:
+
+less GCF_000001635.27_GRCm39_genomic.fna.gz | grep -e ">"
+less GCF_000001635.27_GRCm39_genomic.fna.gz | grep -e ">NT"
+less GCF_000001635.27_GRCm39_genomic.fna.gz | grep -e ">NC"
+
+
+### Purpose of Each Command
+
+1. **`grep -e ">"`**
+
+   * Lists all **sequence headers** in the reference FASTA.
+   * Helps identify how many contigs/chromosomes are present and their naming conventions.
+
+2. **`grep -e ">NT"`**
+
+   * Filters headers for sequences labeled as **NT**.
+   * In this workflow, these NT contigs were the **specific target chromosomes/contigs** for variant calling.
+
+3. **`grep -e ">NC"`**
+
+   * Filters headers for sequences labeled as **NC** (often representing complete reference chromosomes).
+   * Useful to distinguish between different types of reference sequences and ensure you are targeting the correct regions.
+
+### **Why This Step is Important**
+
+* Ensures correct chromosome/contig selection for variant calling.
+* Helps avoid mistakes such as calling variants on unintended scaffolds or mitochondrial sequences.
+* Provides confidence that your BAM alignments and reference sequences match before running computationally intensive variant calling.
+
+
+
+# Variant Calling with BCFtools
+
+## **Creating a List of BAM Files for Joint Variant Calling**
+
+Before running **BCFtools mpileup** and variant calling, it is convenient to have **all sample BAM files listed in a single text file**. This allows `bcftools mpileup` to process multiple samples in a single run.
+
+### **Command Used**
+
+```bash
+cat > /media/admi/data2/SRRfiles/all_merged_bamfiles.txt <<EOF
+/media/admi/data2/ERRfiles/err_duplicates/ERR_deduplicated_merged.bam
+/media/admi/data2/mus_musculus_cp/ACTREC_MUS_1/ACTREC_MUS1_merged_deduplicated.bam
+/media/admi/data2/mus_musculus_cp/ACTREC_MUS_2/ACTREC_MUS2_merged_deduplicated.bam
+/media/admi/data2/mus_musculus_cp/CCMB_MUS_1/CCMB_MUS1_merged_deduplicated.bam
+/media/admi/data2/mus_musculus_cp/CCMB_MUS_2/CCMB_MUS2_merged_deduplicated.bam
+/media/admi/data2/SRRfiles/srr_deduplicated/SRR17772243_sorted_reads_deduplicated.bam
+...
+EOF
+```
+
+### **Explanation**
+
+1. **`cat > file <<EOF ... EOF`**
+
+   * Creates a new file (`all_merged_bamfiles.txt`) and writes the list of BAM file paths to it.
+2. **BAM files included**
+
+   * **ERR/SRR public datasets** (single or merged runs)
+   * **ACTREC and CCMB local datasets** (merged BAMs for each sample)
+3. **Purpose**
+
+   * Provides `bcftools mpileup` with a single file (`-b`) containing all BAM paths.
+   * Ensures **joint variant calling** across all samples in the study.
+   * Makes the workflow **reproducible** and avoids manually specifying each BAM in the command line.
+
+---
+## Script to run BCFtool mpileup for variant calling:
+
+This script demonstrates how to call variants from aligned BAM files using BCFtools, a widely used toolkit for processing and analyzing sequence alignment and variant data.
+
+---
+
+## 1. About the Script
+
+#!/bin/bash
+
+REFERENCE="/media/admi/data2/SRRfiles/reference/GCF_000001635.27_GRCm39_genomic.fna"
+BAM_LIST="/media/admi/data2/SRRfiles/all_merged_bamfiles.txt"
+OUTPUT_DIR="/media/admi/data2/snp_calls_nt"
+mkdir -p "$OUTPUT_DIR"
+
+for CHR in NT_166280.1 NT_166281.1 NT_166282.1 NT_162750.1 NT_166338.1 \
+           NT_187055.1 NT_187056.1 NT_187057.1 NT_187058.1 NT_166438.1 \
+           NT_187059.1 NT_166307.1 NT_165789.3 NT_187060.1 NT_187061.1 \
+           NT_187062.1 NT_187063.1 NT_166451.1 NT_166462.1 NT_166465.1 \
+           NT_166466.1 NT_166467.1 NT_166469.1 NT_166474.1 NT_166476.1 \
+           NT_166478.1 NT_166443.1 NT_166444.1 NT_166480.1 NT_166456.1 \
+           NT_166471.1 NT_166473.1 NT_166454.1 NT_166463.1 NT_166450.1 \
+           NT_166452.1 NT_187064.1
+
+do
+  bcftools mpileup -Ou -f "$REFERENCE" -r "$CHR" -b "$BAM_LIST" -a AD,ADF,ADR,DP,SP | \
+  bcftools call -Ovz -m -f GQ,GP | \
+  bcftools view -v snps -m2 -M2 -Oz -o "$OUTPUT_DIR/${CHR}_calls.vcf.gz" &
+done
+wait
+
+
+**Key points:**
+
+* **REFERENCE** → Path to the reference genome (FASTA).
+* **BAM_LIST** → A text file containing paths to all aligned BAM files, one per line.
+* **OUTPUT_DIR** → Directory where VCF files will be saved.
+* The script loops over each chromosome/contig, calls variants, and outputs compressed VCFs.
+* `&` and `wait` → Run all chromosomes in parallel and wait for completion.
+* bcftools view -v snps -m2 -M2: To visualise biallelic SNPs only. 
+
+
+## 2. The `mpileup` Function
+
+The bcftools mpileup command generates pileup information from BAM files. Essentially, it summarizes the read data for each genomic position relative to the reference.
+
+**Command options in the script:**
+
+* `-Ou` → Output uncompressed BCF format for piping to `bcftools call`.
+* `-f "$REFERENCE"` → Specifies the reference genome.
+* `-r "$CHR"` → Restricts analysis to a specific chromosome/contig.
+* `-b "$BAM_LIST"` → Reads list of BAM files to include.
+* `-a AD,ADF,ADR,DP,SP` → Annotates output with additional info for each site:
+
+  * **AD** → Allelic depths for all alleles in the order listed
+  * **ADF/ADR** → Allelic depth on forward/reverse strands
+  * **DP** → Total depth of coverage
+  * **SP** → Phred-scaled strand bias
+
+The output of `mpileup` is then piped into **`bcftools call`**, which performs **variant calling**.
+
+## 3. Variant Calling with `bcftools call
+
+* `-Ovz` → Output compressed VCF (VCF.gz).
+* `-m` → Use the **multiallelic caller**, suitable for SNPs and small indels.
+* `-f GQ,GP` → Include **genotype quality (GQ)** and **genotype probabilities (GP)** annotations.
+
+Finally, `bcftools view` compresses and writes the VCF file for each chromosome.
+
+---
+
+## 4. Workflow Summary
+
+1. **Generate pileup** from all BAM files (`mpileup`).
+2. **Call variants** with genotype probabilities (`call`).
+3. **Output VCF.gz files** for each chromosome/contig.
+4. The pipeline is parallelized to improve efficiency.
+
+
+---
+
+## **Inspecting FORMAT Fields in a VCF**
+
+Before performing downstream analyses or filtering, it can be useful to **explore the FORMAT columns** of a VCF file. The following command was used:
+
+
+bcftools view NT_187055.1_calls.vcf.gz | grep -v "^#" | cut -f9 | sort | uniq
+
+### **Step-by-step Explanation**
+
+1. **`bcftools view NT_187055.1_calls.vcf.gz`**
+
+   * Streams the VCF content to stdout.
+2. **`grep -v "^#"`**
+
+   * Removes all **header lines**, leaving only variant records.
+3. **`cut -f9`**
+
+   * Extracts the **9th column**, which corresponds to the **FORMAT field** describing what data is present for each genotype (e.g., `GT:AD:DP:GQ:PL`).
+4. **`sort | uniq`**
+
+   * Sorts and lists **unique FORMAT definitions**, so you can see all the different types of annotations present in the VCF.
+
+### **Why This Step Is Important**
+
+* Ensures that you understand **what information is available for each genotype**, such as:
+
+  * `GT` → Genotype
+  * `AD` → Allelic depths
+  * `DP` → Depth of coverage
+  * `GQ` → Genotype quality
+* Helps in planning **downstream filtering steps**, for example: filtering by depth, genotype quality, or minor allele counts.
+* Useful for confirming that your variant calling output contains **expected annotations**, especially after using `bcftools mpileup` and `bcftools call`.
