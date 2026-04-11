@@ -1,0 +1,5 @@
+i have a foler which has sorted and indexed bam files of 72 samples.
+
+# to count the no of bam.bai files
+ls *_aligned_reads_sorted.bam.bai | wc -l
+
