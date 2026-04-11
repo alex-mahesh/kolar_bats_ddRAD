@@ -12,8 +12,21 @@ ls *_aligned_reads_sorted.bam > bamlist.txt
 //bamlist.txt this file gets created
 
 ## creating a conda environment for bcftools
-conda install -c conda-forge -c bioconda bcftools
+conda create -n bcftools -c conda-forge -c bioconda bcftools
+//conda install -c conda-forge -c bioconda bcftools
 //conda create -n bcftools -c bioconda bcftools
 
 screen -S variant //creating a screen for running variant identification 
+
+## generating raw varianats using bcftools(mpileup) 
+bcftools mpileup \
+  -f GCA_031876335.1_mHipLar1.pri_genomic.fna \
+  -b bamlist.txt \
+  -q 20 -Q 20 \
+  -a DP,AD \
+  -Ou \
+| bcftools call \
+  -mv \
+  -Ob \
+  -o raw_variants.bcf
 
