@@ -1,0 +1,104 @@
+##applying various filters##
+
+bcftools view -v snps -f PASS raw_variants.bcf -Ou | \
+bcftools filter -e 'QUAL<30 || DP<4 || DP>200 || FMT/GQ<30' -Ou | \
+bcftools view -i 'F_MISSING<0.7 && MAF>0.02' -Ob -o final_ddrad.bcf
+
+##explanation of the above code##
+
+# bcftools view -v snps -f PASS raw_variants.bcf -Ou
+
+What it does:
+-v snps → keeps only SNPs (Single Nucleotide Polymorphisms)
+❌ removes indels, structural variants, etc.
+-f PASS → keeps only variants that passed filters during variant calling
+(FILTER column = "PASS")
+-Ou → outputs uncompressed BCF to stdout
+-O = output format
+u = uncompressed (fast for piping)
+
+👉 After this step:
+✔ Only high-confidence SNPs remain (based on caller flags)
+
+# bcftools filter -e 'QUAL<30 || DP<5 || DP>200 || FMT/GQ<30' -Ou
+-e means:
+
+➡️ Exclude variants where this condition is TRUE
+
+Each condition explained:
+1. QUAL<30
+QUAL = variant quality score (Phred-scaled)
+Removes variants with:
+High probability of being false positives
+
+✔ Threshold 30 → ~99.9% confidence
+
+2. DP<4
+DP = read depth (coverage)
+Removes variants with:
+Too few reads → unreliable
+3. DP>200
+Removes sites with excessively high coverage. Why?
+Could indicate:
+PCR duplicates
+repetitive regions
+mapping artifacts
+  
+ddRAD has low coverage loci → relax minimum 
+Some loci get very high coverage → increase upper limit
+
+👉 Too strict DP filtering = lose real loci
+4. FMT/GQ<30
+FMT/GQ = Genotype Quality (per sample)
+
+⚠ Important:
+This checks genotype confidence inside each sample
+Removes variants where:
+genotype calls are uncertain
+  
+ddRAD genotype calls are noisier
+Slightly relaxing helps retain real variants
+
+👉 After Step 2:
+✔ Only variants with:
+Good quality
+Reasonable depth
+Reliable genotype calls
+
+bcftools view -i 'F_MISSING<0.7 && MAF>0.02' -Ob -o final_ddrad.bcf
+Again, -e = exclude if condition is true
+
+1. F_MISSING<0.7
+Fraction of missing genotypes at a site
+Example:
+10 samples
+6 missing → F_MISSING = 0.6 
+F_MISSING<0.7
+Why:
+Missing data is expected in ddRAD
+Allow up to 70% missing
+👉 You can tighten later if needed
+
+2. MAF>0.02
+MAF>0.02
+Why:
+ddRAD datasets often have fewer loci
+Keeping slightly rarer variants helps downstream analysis.
+  
+Why remove rare variants?
+Often:
+sequencing errors
+low statistical power in population analysis
+Output:
+-Ob → compressed BCF output
+-o final.bcf → saved as final file
+
+ddRAD data typically has:
+⚠️ Highly uneven coverage across loci
+⚠️ Allele dropout (missing data is common)
+⚠️ Stacked reads at restriction sites (can inflate DP)
+  
+  
+
+
+  
