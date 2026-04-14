@@ -30,3 +30,42 @@ bcftools mpileup \
   -Ob \
   -o raw_variants.bcf
 
+raw_variants.bcf // got this file once the variant calling was done.
+
+###checking the bcf file###
+# viewing the bcf file
+bcftools view -H raw_variants.bcf | less -S
+
+# Checking the number of variants
+bcftools view -H raw_variants.bcf | wc -l
+
+# Checking number of samples
+bcftools query -l raw_variants.bcf | wc -l
+
+# checking file intergrity
+bcftools view raw_variants.bcf > /dev/null
+
+👉 If no error → file is not corrupted ✅
+
+# checking if variants exist
+bcftools view -H raw_variants.bcf | head
+
+👉 You should see lines like:
+CM063088.1   12345   .   A   G   50   PASS ...
+
+#checking the number of variants with different quality scores
+bcftools query -f '%QUAL\n' raw_variants.bcf | awk '{print int($1)}' | sort -n | uniq -c
+
+
+
+
+
+
+
+
+
+
+
+
+
+
