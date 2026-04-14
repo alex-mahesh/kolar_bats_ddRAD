@@ -1,0 +1,14 @@
+
+## redoing the variant calling using bcf tools to include GQ also##
+
+bcftools mpileup \
+  -f GCA_031876335.1_mHipLar1.pri_genomic.fna \
+  -b bamlist.txt \
+  -q 20 -Q 20 \
+  -a DP,AD \
+  -Ou \
+| bcftools call \
+  -mv \
+  -f GQ,GP \
+  -Ob \
+  -o raw_variants2.bcf
