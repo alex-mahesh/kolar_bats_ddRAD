@@ -1,3 +1,9 @@
+##to copy files from server to laptop. Open a new ubuntu tab and run this with out logging in into the server.
+scp -r alex@10.58.98.103:/home/alex/ddRAD/analysis/fastqs/html_files/40107401883_L001_R1_001_fastqc.html .
+
+## we can do pwd to find the path of the file that we want to transfer to the laptop.
+pwd
+/home/alex/ddRAD/analysis/fastqs/html_files  //this is the path on the server
 
 ## redoing the variant calling using bcf tools to include GQ also##
 
