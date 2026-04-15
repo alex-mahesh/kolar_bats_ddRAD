@@ -1,8 +1,10 @@
-##applying various filters##
+##applying various filters## (this is using bcftools. this one was not used for analysis, vcf tools were used)
 
 bcftools view -v snps -f PASS raw_variants.bcf -Ou | \
-bcftools filter -e 'QUAL<30 || DP<4 || DP>200 || FMT/GQ<30' -Ou | \
-bcftools view -i 'F_MISSING<0.7 && MAF>0.02' -Ob -o final_ddrad.bcf
+bcftools filter -e 'QUAL<30 || INFO/DP<4 || INFO/DP>200' -Ou | \
+bcftools +setGT -Ou -- -t q -n . -i 'FMT/GQ<30' | \
+bcftools +fill-tags -Ou -- -t MAF,F_MISSING | \
+bcftools view -f PASS -i 'F_MISSING<0.7 && MAF>0.02' -Ob -o final_ddrad.bcf
 
 ##explanation of the above code##
 
