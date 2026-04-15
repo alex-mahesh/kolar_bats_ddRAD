@@ -1,2 +1,19 @@
 
 conda create -n strelka -c conda-forge -c bioconda strelka
+
+# running variant identification using strelka
+
+for bam in *_aligned_reads_sorted.bam
+do
+  sample=$(basename $bam .bam)
+  
+  configureStrelkaGermlineWorkflow.py \
+    --bam $bam \
+    --referenceFasta GCA_031876335.1_mHipLar1.pri_genomic.fna \
+    --runDir strelka_$sample
+
+  cd strelka_$sample
+  ./runWorkflow.py -m local -j 8
+  cd ..
+done
+
