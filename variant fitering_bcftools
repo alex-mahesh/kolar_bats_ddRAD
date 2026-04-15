@@ -1,0 +1,16 @@
+
+##converting .bcf file to .vcf file
+bcftools view raw_variants2.bcf -Ov -o raw_variants2.vcf
+
+bcftools view → reads the BCF file
+-Ov → output format = VCF (uncompressed text)
+-o raw_variants2.vcf → writes to a .vcf file
+
+## doing the vairant filtering using bcf tools##
+bcftools view \
+  -f PASS \
+  -v snps \
+  -i 'QUAL>=30 && FORMAT/GQ>=30' \
+  raw_variants2.vcf \
+  -Ov -o final_filtered.vcf
+
