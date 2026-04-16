@@ -1,0 +1,66 @@
+
+#!/bin/bash
+
+# Set input and output directories
+BAM_DIR="/home/alex/ddRAD/analysis/read_mapping"
+OUT_DIR="/home/alex/ddRAD/analysis/qualimap_result"
+
+# Create output directory if it doesn't exist
+mkdir -p "$OUT_DIR"
+
+# Loop through each .bam file in the input directory
+for bam in "$BAM_DIR"/*.bam; do
+    # Extract filename without the .bam extension
+    full=$(basename "$bam" .bam)
+
+    # Extract sample prefix before the first dot
+    prefix=${full%%.*}
+
+    # Define output path for this sample
+    sample_out="$OUT_DIR/bamqc_${prefix}"
+
+    # Check if output folder already exists
+    if [ -d "$sample_out" ]; then
+        echo " Skipping $prefix — already processed."
+        continue
+    fi
+
+    echo " Processing $prefix..."
+
+    # Run Qualimap bamqc
+    qualimap bamqc \
+      -bam "$bam" \
+      -outdir "$sample_out" \
+      -outformat PDF \
+      -nt 4
+
+    echo "Finished processing $prefix"
+
+
+
+BAM_DIR="/home/alex/ddRAD/analysis/read_mapping"
+OUT_DIR="/home/alex/ddRAD/analysis/qualimap_result"
+mkdir -p "$OUT_DIR"
+for bam in "$BAM_DIR"/*.bam; do
+full=$(basename "$bam" .bam)
+prefix=${full%%.*}
+sample_out="$OUT_DIR/bamqc_${prefix}"
+if [ -d "$sample_out" ]; then
+        echo " Skipping $prefix — already processed."
+        continue
+    fi
+
+    echo " Processing $prefix..."
+    qualimap bamqc \
+      -bam "$bam" \
+      -outdir "$sample_out" \
+      -outformat PDF \
+      -nt 4
+
+    echo "Finished processing $prefix"
+
+
+
+
+    
+done
