@@ -18,3 +18,35 @@ bcftools mpileup \
   -f GQ,GP \
   -Ob \
   -o raw_variants2.bcf
+
+##### merging vcfs that i got from indiviudal files using strelka into one######
+#Gather all VCF paths into one list
+find strelka_* -name "variants.vcf.gz" > vcf_list.txt
+
+#Index all VCF files (IMPORTANT)
+Using bcftools:
+
+while read vcf
+do
+  bcftools index "$vcf"
+done < vcf_list.txt
+
+#Rename each sample properly
+For each VCF, assign a unique name (e.g., from BAM filename):
+
+for vcf in $(cat vcf_list.txt)
+do
+  sample=$(basename $(dirname $(dirname $vcf)))   # gets strelka_sample name
+  
+  echo "$sample"
+  
+  bcftools reheader -s <(echo $sample) "$vcf" -o ${vcf%.vcf.gz}.renamed.vcf.gz
+done
+
+
+
+
+
+
+
+
