@@ -66,6 +66,8 @@ Servers usually don’t show plots directly, so save it:
 
 png("pca_plot.png")
 plot(pca$V3, pca$V4, pch=19)
+// here we get a PCA plot with 3 different clusters.
+
 dev.off()
 
 
