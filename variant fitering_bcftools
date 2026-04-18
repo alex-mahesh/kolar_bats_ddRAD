@@ -14,3 +14,19 @@ bcftools view \
   raw_variants2.vcf \
   -Ov -o final_filtered.vcf
 
+#### doing variant filtering for the vcf file obtained using strelka####
+bcftools view \
+  -f PASS \
+  -v snps \
+  -i 'QUAL>=30 && FORMAT/GQ>=30' \
+  variants.vcf.gz \
+  -Ov -o filtered_strelka.vcf
+
+/home/alex/ddRAD/analysis/read_mapping/strelka_output/results/variants/filtered_strelka.vcf
+
+878902 - this is the number of variants that I got after filtering the vcf file obtained using strelka.
+
+
+
+
+
