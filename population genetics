@@ -49,11 +49,24 @@ conda create -n R -c conda-forge r-ggplot2
 ## installing R packages directly on server##
 #activate R environment 
 conda activate R
-
 conda install -c conda-forge r-scales // here scales is the name of the package.
+
+press "R" // this is to start R
+Type 'q()' to quit R.
 
 ## to install packages after entering R##
 install.packages("tidyverse") // here tidyverse is the name of the package
+
+Run your PCA plotting code
+pca <- read.table("pca.eigenvec", header=FALSE)
+plot(pca$V3, pca$V4, pch=19)
+
+Save plot as image (important for servers)
+Servers usually don’t show plots directly, so save it:
+
+png("pca_plot.png")
+plot(pca$V3, pca$V4, pch=19)
+dev.off()
 
 
 
