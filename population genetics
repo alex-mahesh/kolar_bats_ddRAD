@@ -1,0 +1,11 @@
+
+#location of filtered vcf file
+/home/alex/ddRAD/analysis/read_mapping/strelka_output/results/variants/filtered_strelka.vcf
+# location of popgen folder to whcich I want to move the vcf file
+/home/alex/ddRAD/analysis/popgen
+
+### moving the vcf file to pogen folder###
+mv /home/alex/ddRAD/analysis/read_mapping/strelka_output/results/variants/filtered_strelka.vcf \
+   /home/alex/ddRAD/analysis/popgen/
+
+   
