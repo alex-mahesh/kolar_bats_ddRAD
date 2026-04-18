@@ -8,4 +8,52 @@
 mv /home/alex/ddRAD/analysis/read_mapping/strelka_output/results/variants/filtered_strelka.vcf \
    /home/alex/ddRAD/analysis/popgen/
 
-   
+###installing plink###
+conda create -n plink -c conda-forge -c bioconda plink
+
+### converting vcf to plink format####
+
+plink --vcf filtered_strelka.vcf \
+      --allow-extra-chr \
+      --set-missing-var-ids @:# \
+      --make-bed \
+      --out dataset
+
+// dataset.bed  dataset.bim  dataset.fam  dataset.log  dataset.nosex the following files get created.
+
+## got this error while running PCA, so rectifying it##
+Error: Sample(s) present with no genotype data.  Use --mind to filter them out.
+
+plink --bfile dataset \
+      --allow-extra-chr \
+      --mind 0.9 \
+      --make-bed \
+      --out dataset_pruned_clean
+
+Why 0.9?
+--mind 0.9 → removes samples with >90% missing data
+This specifically targets samples with almost no data
+
+### Running the PCA####
+plink --bfile dataset_pruned_clean \
+      --allow-extra-chr \
+      --pca 10 \
+      --out pca
+
+//--pca: Results saved to pca.eigenval and pca.eigenvec
+
+## installing R##
+conda create -n R -c conda-forge r-ggplot2
+//in the above command ggplot was installed, but R also got installed as ggplot is dependent on R
+
+## installing R packages directly on server##
+#activate R environment 
+conda activate R
+
+conda install -c conda-forge r-scales // here scales is the name of the package.
+
+## to install packages after entering R##
+install.packages("tidyverse") // here tidyverse is the name of the package
+
+
+
