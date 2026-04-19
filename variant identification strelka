@@ -33,7 +33,7 @@ configureStrelkaGermlineWorkflow.py \
   --referenceFasta /home/alex/ddRAD/analysis/read_mapping/GCA_031876335.1_mHipLar1.pri_genomic.fna \
   --runDir /home/alex/ddRAD/analysis/read_mapping/strelka_output \
   $(printf -- '--bam %s ' "${bams[@]}")
-
+# run the below after this.
 cd /home/alex/ddRAD/analysis/read_mapping/strelka_output
 ./runWorkflow.py -m local -j 8
 
