@@ -70,5 +70,22 @@ plot(pca$V3, pca$V4, pch=19)
 
 dev.off()
 
+######################### Admixture ##########
+admixture dataset_pruned_clean.bed 2
+admixture dataset_pruned_clean.bed 3
+admixture dataset_pruned_clean.bed 4
+// was getting errors for the above code. so need to rectify it.
+
+plink --bfile dataset_pruned_clean \
+      --allow-extra-chr \
+      --chr 1 \
+      --make-bed \
+      --out dataset_admix
+
+
+
+
+
+
 
 
