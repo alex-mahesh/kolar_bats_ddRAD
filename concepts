@@ -1,0 +1,330 @@
+
+
+##### Why do we need to allign our reads to a reference genome? #####
+
+In your ddRAD workflow, the alignment step is done to determine where each sequencing read came from in the genome.
+Your sequencer gives you millions of short DNA fragments (reads), but initially they are just isolated sequences with no positional information. 
+By aligning them to a reference genome from a related bat species, you can place those reads onto approximate genomic locations.
+  
+Why alignment is necessary in ddRAD population genetics
+Suppose one of your reads is:
+ATCGGATCCTAGGCTA
+
+By itself, this sequence is not very useful because you do not know:
+which chromosome it belongs to
+which genomic region it came from
+whether another individual has the same locus
+whether differences are true variants or sequencing errors
+
+Alignment solves this.
+The aligner (like BWA or Bowtie2) compares each read against the reference genome and finds the best matching location.
+After alignment, the read becomes something like:
+Chromosome 5 : position 12,543,221
+Now reads from all individuals can be compared at the same genomic coordinates.
+
+## Why this is especially important for ddRAD ##
+
+ddRAD sequences only a subset of the genome near restriction enzyme cut sites.
+Without alignment:
+loci from different individuals cannot easily be matched
+SNP calling becomes difficult
+population analyses become unreliable
+
+Alignment allows you to:
+identify homologous loci across individuals
+detect SNPs
+calculate allele frequencies
+estimate heterozygosity
+perform PCA/admixture/FST analyses
+infer phylogeny and population structure
+
+## Why use a related species genome for alligning the reads? ##
+
+You usually do not have a reference genome for your exact species.
+Using a genome from the same genus works because closely related species still share large portions of their DNA sequence.
+The aligner tolerates some mismatches caused by evolutionary divergence.
+
+However:
+if the reference is too distant, alignment quality decreases
+some reads may fail to map
+bias can occur in variant calling
+For species within the same genus, this is usually acceptable for population genomics.
+
+##### What is a SAM file? ####
+  
+SAM = Sequence Alignment/Map format.
+It is a text file that stores:
+the original sequencing read
+where it aligned in the reference genome
+alignment quality information
+mismatch information
+
+It is essentially a record of how every read mapped to the genome.
+  
+Simple analogy
+Imagine:
+reads = puzzle pieces
+reference genome = picture on the puzzle box
+Alignment tries to place every puzzle piece in the correct location on the picture.
+The SAM file is the report describing where every piece was placed and how well it fit.
+  
+## Structure of a SAM file ##
+
+A SAM file has:
+1. Header lines
+These start with @
+Example: @SQ SN:chr1 LN:248956422
+This describes the reference sequence.
+  
+2. Alignment lines
+Each line represents one sequencing read.
+Example:
+READ001  0  chr1  1050  60  100M  *  0  0  ACTG...  IIII...
+
+Important SAM columns
+Column	  Meaning
+QNAME	   Read name
+FLAG	   Information about mapping
+RNAME	   Reference chromosome/scaffold
+POS	      Alignment start position
+MAPQ	   Mapping quality
+CIGAR	   How the read aligned
+SEQ	    Read sequence
+QUAL  	Base quality scores
+
+## Example explained ##
+READ001  0  chr1  1050  60  100M
+Means:
+Read name = READ001
+aligned to chromosome 1
+starting at position 1050
+mapping quality = 60 (very confident)
+100M = 100 matched bases
+
+## What the CIGAR string means ##
+
+The CIGAR string describes alignment operations.
+Example: 90M2I8M
+Means:
+90 matched bases
+2 inserted bases
+8 matched bases
+
+## Other symbols: ##
+Symbol   	Meaning
+M	       Match/mismatch
+I	       Insertion
+D	       Deletion
+S      	Soft clipping
+H	      Hard clipping
+
+In a SAM/BAM CIGAR string, hard clipping (H) and soft clipping (S) both mean that part of a sequencing read did not align to the reference genome.
+The difference is whether the clipped bases are still kept in the SAM/BAM record.
+
+Soft clipping (S)
+Soft-clipped bases are:
+NOT aligned to the reference
+but are still stored in the read sequence
+
+Example: 10S90M
+Means:
+first 10 bases were clipped
+next 90 bases aligned
+
+Hard clipping (H)
+Hard-clipped bases are:
+NOT aligned AND completely removed from the stored sequence
+
+Example: 10H90M
+Means:
+first 10 bases were discarded entirely only the remaining 90 aligned bases are stored
+The clipped bases do not appear in the SAM/BAM sequence field.
+
+##################################################################################################################################################
+
+#### What is a BAM file and why  do we need to convert SAM to BAM ####
+  
+A BAM file is the binary compressed version of a SAM file.
+SAM = human-readable text format
+BAM = compact binary format
+Both contain the same alignment information, but BAM is much more efficient for computational work.
+
+Why SAM files are problematic
+SAM files are huge because they are plain text.
+For example:
+a SAM file from ddRAD data may be several GB
+whole genome sequencing SAM files can exceed hundreds of GB
+
+Every read is written as readable text like:
+READ001  0  chr1  1050  60  100M ...
+Text storage is inefficient.
+
+Main reasons we convert SAM → BAM
+1. Smaller file size
+BAM files are usually much smaller.
+
+Example:
+File type	Approximate size
+SAM	  40 GB
+BAM	  5–10 GB
+This saves:
+storage space
+transfer time
+RAM usage
+
+2. Faster computation
+Programs process BAM files faster because:
+compressed binary reading is efficient
+random access is possible
+parsing text is avoided
+Tools like:
+bcftools, samtools, GATK, Qualimap are optimized for BAM.
+
+3. BAM files can be indexed
+This is extremely important.
+An index (.bai) allows software to jump directly to specific genomic regions.
+Without indexing:
+Find reads on chromosome 5 at position 1,000,000
+for this the program would need to scan the entire file.
+With indexing:
+it jumps directly to the needed region instantly
+This enables:
+genome visualization in IGV, rapid SNP calling, efficient coverage analysis
+
+Typical workflow
+You usually do: SAM ↓ BAM ↓ sorted BAM ↓ indexed BAM
+
+## What “sorted BAM” means ##
+Reads are arranged by genomic coordinates.
+Example:
+chr1:100
+chr1:150
+chr1:220
+chr2:50
+
+Sorting is required before indexing and variant calling.
+
+## Why reads are initially unsorted ##
+During alignment, reads are processed in the order they appear in the FASTQ file.
+So the BAM file may look like:
+chr2:300
+chr1:100
+chr5:900
+chr1:220
+chr2:80
+This random order is inefficient for downstream analyses.
+
+## Why sorting is necessary ##
+  
+1. Variant calling requires grouped reads
+To identify SNPs, programs must examine all reads covering the same genomic position.
+
+Example:
+At position chr1:1000, the variant caller needs all overlapping reads together:
+Read1 → A
+Read2 → A
+Read3 → G
+Read4 → A
+If reads are scattered randomly throughout the BAM file, the program would constantly search the entire file.
+Sorting places nearby genomic reads together, making this efficient.
+
+2. BAM indexing only works on sorted BAMs
+When you create a BAM index (.bai), the software records:
+“reads for this genomic region are located here in the file”
+This only works if reads are ordered by coordinates.
+Without sorting, indexing becomes impossible or meaningless.
+
+###########################################################################################################################################
+
+## Indexing a BAM file ##
+Indexing a BAM file means creating a separate lookup file that allows software to quickly locate reads from specific genomic regions without 
+scanning the entire BAM file.
+
+Why indexing is needed
+A BAM file may contain millions of aligned reads.
+Suppose you want to examine: chr5:1,000,000–1,001,000
+Without an index:
+the software must read the entire BAM file from beginning to end. This is very slow
+With an index:
+the software jumps directly to the relevant part of the BAM file.
+This makes genomic analysis fast.
+
+## Why BAM must be sorted before indexing ##
+Indexing only works properly if reads are arranged by genomic position.
+
+Example of sorted BAM:
+chr1:100
+chr1:150
+chr1:220
+chr1:400
+chr2:50
+Because reads are ordered, the index can record:
+chr1 positions 1–100000 → located near byte X in file
+chr1 positions 100001–200000 → located near byte Y
+If reads were random, this would not work.
+
+## What the index actually stores ##
+The .bai file does NOT store the reads themselves.
+
+Instead, it stores pointers telling software approximately:
+where genomic regions are located inside the BAM file.
+file offsets (byte positions).
+
+So when a tool requests:
+chr3:500000
+the index says:
+“start reading the BAM file around byte position XXXXX”
+This avoids reading the whole file.
+
+## What happens internally ##
+
+Step 1: Read sorted BAM
+The indexing program scans the BAM file sequentially.
+
+Step 2: Divide genome into regions (“bins”)
+The genome is split into genomic intervals.
+
+Example:
+chr1:
+1–16384
+16385–32768
+32769–49152
+...
+  
+Step 3: Record file locations
+For each genomic interval, the index stores:
+genomic region → BAM file position
+
+## Important point ##
+The BAM index is tied to that exact BAM file.
+If you modify the BAM file (sorting, filtering, etc.), you must regenerate the index.
+Otherwise:
+coordinates no longer match
+tools may fail or give errors
+
+
+  
+
+
+
+
+  
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
