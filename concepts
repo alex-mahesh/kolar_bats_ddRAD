@@ -302,8 +302,509 @@ Otherwise:
 coordinates no longer match
 tools may fail or give errors
 
+##########################################################################################################################################################
+## Variant calling ##
+Variant calling (or variant identification) is the process of finding positions in the genome where your samples differ from the reference genome or from 
+each other.
+These differences are called genetic variants.
 
-  
+In population genetics, the most common variants are:
+Variant type                        	   Example
+SNP (single nucleotide polymorphism)	    A → G
+Insertion                          	extra bases added
+Deletion                             	bases missing
+
+## What variant calling means biologically ##
+
+Suppose the reference genome has:
+Position 1000 = A
+
+You sequence three bats and align their reads.
+At that position:
+Bat     	Observed base
+Bat 1	        A
+Bat 2       	G
+Bat 3       	A
+
+This suggests there is a SNP: A/G polymorphism
+Variant calling is the computational process that detects this difference from aligned sequencing data.
+
+An A/G polymorphism means that at a particular position in the genome, some individuals have the nucleotide A while others have G.
+This is a type of SNP (Single Nucleotide Polymorphism).
+
+## Example ##
+Suppose we look at position 1050 in the genome.
+Reference genome: Position 1050 = A
+Now imagine sequencing three bats:
+Bat	    Base at position 1050
+Bat 1    	A
+Bat 2	    G
+Bat 3	    A
+
+Since both A and G occur in the population, this position is called an:
+A/G polymorphism
+
+Meaning:
+one allele = A
+another allele = G
+
+## What “polymorphism” means ##
+“Poly” = many
+“morphism” = forms
+
+So polymorphism means: a genomic position exists in multiple forms within a population.
+
+## Genotype vs allele ##
+At one SNP position:
+Possible genotypes are:
+Genotype	             Meaning
+AA	          both chromosome copies have A
+AG          	one A and one G
+GG	          both copies have G
+
+In diploid organisms like bats, each individual has two copies of the genome, so two alleles are present at each position.
+
+## Visualization ##
+
+Suppose the reference sequence is:
+...T C A G T...
+       ^
+At the marked position:
+Some bats may have:
+...T C A G T...
+Others may have:
+...T C G G T...
+That single base difference is the polymorphism.
+
+## Why these polymorphisms matter ##
+These SNPs are the raw material for population genetics.
+By analyzing thousands of SNPs across individuals, you can study:
+
+genetic diversity, relatedness, population structure, gene flow, species differentiation, evolutionary history
+
+### In that example, the three bats could be either:###
+
+three individuals of the same species
+or
+individuals from different species
+The example was only meant to illustrate what an A/G polymorphism is.
+However, in population genetics, the interpretation changes depending on the biological context.
+
+If the bats are from the SAME species
+An A/G polymorphism usually represents: normal genetic variation within the species
+
+Example:
+Individual	Genotype
+Bat 1	         AA
+Bat 2	         AG
+Bat 3	         GG
+
+This kind of variation is what population genetic analyses mainly study.
+You can estimate: allele frequencies, heterozygosity, population structure, gene flow
+
+If the bats are from DIFFERENT species
+Then the SNP may represent: species divergence, fixed differences between species
+
+Example:
+Species         	Typical allele
+Species A           	A
+Species B            	G
+
+Such variants can help identify: species boundaries, evolutionary relationships, hybridization, adaptive divergence
+
+## Why variant calling is necessary ##
+
+Raw sequencing reads alone are not directly useful for population genetics.
+
+You need to identify:
+which genomic positions vary
+which individuals carry which alleles
+allele frequencies
+genotype patterns
+
+These variants become the basis for: PCA, admixture analysis, FST, phylogenetics, diversity estimation, demographic inference
+
+## Core idea of variant calling ##
+
+Variant callers examine aligned reads in BAM files and ask:
+“At this genomic position, what nucleotide is truly present in each sample?”
+
+The challenge is distinguishing:
+true biological variation from sequencing errors, PCR artifacts, alignment mistakes
+
+### How variant calling works ###
+
+Step 1: Reads are aligned
+FASTQ → alignment → BAM
+Now every read has genomic coordinates.
+
+Step 2: Examine each genomic position
+The variant caller scans the genome position by position.
+Example:
+chr1:1050
+All reads covering that position are collected.
+
+Step 3: Create a pileup
+The software stacks all overlapping reads.
+Example:
+Reference: A
+Reads:
+A
+A
+G
+A
+A
+G
+This is called a pileup.
+
+Step 4: Evaluate evidence
+The caller considers:
+   Factor	                               Why important
+Number of reads supporting allele	       confidence
+Base quality scores	                   sequencing accuracy
+Mapping quality	                       alignment confidence
+Strand balance                        	artifact detection
+Depth of coverage                     	statistical power
+
+Step 5: Infer genotype
+The software estimates the genotype.
+Examples:
+Read pattern	    Genotype
+Mostly A	          AA
+Mostly G	          GG
+Mix of A and G    	AG
+
+Step 6: Write variants to a VCF file
+
+Results are stored in a VCF file.
+VCF = Variant Call Format.
+Example:
+#CHROM POS ID REF ALT QUAL
+chr1   1050 .  A   G   99
+
+Meaning:
+reference allele = A
+alternative allele = G
+high confidence SNP
+
+## Why alignment quality matters ##
+
+Variant calling depends heavily on correct alignment.
+Bad alignment can create false variants.
+
+For example:
+reads mapped to wrong locations
+repetitive regions
+low-quality mappings
+can appear as fake SNPs.
+
+That is why: BAM sorting, BAM indexing, mapping quality filtering, are important preprocessing steps.
+
+#########################################################################################################################################################
+
+#### Fitering VCF file ####
+
+Filtering a VCF file is done to remove low-confidence or biologically unreliable variants before population genetic analysis.
+Raw variant calling usually contains:
+sequencing errors
+alignment artifacts
+PCR errors
+poorly genotyped loci
+extremely rare suspicious variants
+filtering improves the reliability of your SNP dataset.
+
+## General idea ##
+
+Variant calling is probabilistic.
+The caller is essentially saying: “I think this position is a SNP.”
+
+Filtering applies additional quality criteria to keep only trustworthy variants.
+
+### filters explained ###
+
+1. minQ30
+This filters variants based on variant quality score (QUAL).
+
+What QUAL means
+QUAL estimates confidence that the variant is real rather than sequencing noise.
+
+It is Phred-scaled:
+Q = -10 log10(error probability)
+What Q30 means
+Q30 → error probability = 0.001
+
+Meaning:
+~99.9% confidence
+expected false call rate ≈ 1 in 1000
+
+Why filter by QUAL?
+Low QUAL variants often arise from:
+sequencing errors
+poor alignments
+low coverage
+repetitive regions
+
+Removing low-quality SNPs reduces false positives.
+
+2. minGQ30
+This filters genotypes based on genotype quality (GQ).
+
+Difference between QUAL and GQ
+Metric	          Applies to
+QUAL	       entire variant site
+GQ	       genotype of each individual
+
+Example
+Suppose a SNP exists at one position.
+The site itself may be real (high QUAL), but one individual may have uncertain genotype because of low coverage.
+
+Example:
+| Individual | Genotype | GQ |
+| Bat1 | AA | 99 |
+| Bat2 | AG | 12 |
+| Bat3 | GG | 85 |
+Bat2 genotype is uncertain.
+
+## Why GQ filtering matters ##
+Low GQ genotypes can introduce:
+false heterozygotes
+artificial population structure
+incorrect allele frequencies
+
+Filtering removes unreliable genotype calls.
+
+3. Remove indels
+Removes insertions and deletions. Keeps only SNPs.
+
+## Why remove indels? ##
+
+Indels are harder to call accurately because:
+alignment becomes complicated
+repetitive regions create artifacts
+indels often have higher error rates
+
+For ddRAD population genetics, SNPs are usually preferred because they are:
+abundant
+easier to analyze
+more reliable
+
+4. remove-filtered-all
+Removes variants that failed filters during variant calling.
+
+What is FILTER column?
+VCF contains:
+FILTER coloumn and it has these possible values:
+Value           	Meaning
+PASS      	   passed caller filters
+LowQual	       low confidence
+other tags    	caller-specific issues
+
+## Why remove filtered variants? ##
+The variant caller itself already flagged some variants as suspicious.
+Keeping them may increase false positives.
+
+5. mac3
+MAC = Minor Allele Count.
+
+Requires the minor allele to appear at least 3 times across all samples.
+Example
+Individual	  Genotype
+  1	             AA
+  2	             AA
+  3	             AA
+  4              AG
+Minor allele = G
+Total G copies = 1
+This SNP would fail MAC3.
+
+## Why use MAC filtering? ##
+
+Very rare alleles are often:
+sequencing errors
+PCR artifacts
+poorly supported variants.
+
+Rare variants can also distort analyses like PCA/admixture.
+MAC filtering increases robustness.
+
+6. hwe 0.05
+Filters variants that strongly deviate from Hardy–Weinberg equilibrium.
+
+What is Hardy–Weinberg equilibrium?
+Under random mating, genotype frequencies should approximately follow:
+p² + 2pq + q² = 1
+
+## Why SNPs deviate from HWE ##
+Possible reasons:
+Cause	                                 Biological or technical
+sequencing/alignment error	                 technical
+paralogous loci                            	technical
+population structure	                      biological
+selection	                                  biological
+inbreeding	                                biological
+
+## Why use HWE filtering? ##
+In population genomics, extreme deviations are often caused by technical artifacts.
+Especially in RAD/ddRAD data:
+paralog mapping
+allele dropout
+misalignments
+can create false heterozygotes.
+
+### Important caution ###
+Since you have multiple species, HWE filtering can be tricky.
+Pooling species together causes strong HWE deviations naturally because allele frequencies differ among species.
+This is called the: Wahlund effect
+
+So HWE filtering should ideally be done:
+within populations/species
+not across all species combined
+Otherwise true biological differentiation may be removed.
+
+7. imiss
+removing individuals with high missing data.
+
+## What it measures ##
+Fraction of missing genotypes per individual.
+Example:
+Individual	Missing rate
+Bat1	           2%
+Bat2	           40%
+Bat3	           5%
+Bat2 is poor quality.
+
+8. max-missing
+Requires variants to be present in a minimum fraction of samples.
+
+Example
+Suppose in 10 individuals:
+SNP present in	    Missingness
+10/10	                 0%
+8/10	                 20%
+2/10	                 80% missing
+
+With:
+--max-missing 0.8
+the SNP must exist in at least 80% of individuals.
+
+# Example #
+Suppose a SNP site looks like this:
+Individual	Genotype
+1	             AA
+2	             AA
+3	             AG
+4	             AA
+5	             GG
+6	             AA
+7            	 AA
+8	             AA
+9	            ./.
+10	          ./.
+Here:
+8 individuals have genotype data
+2 are missing (./.)
+So:
+8/10 = 0.8
+This SNP passes --max-missing 0.8
+
+# Another example #
+Individual	Genotype
+1	             AA
+2	             AG
+3	             ./.
+4	             ./.
+5	             GG
+6	             ./.
+7	             AA
+8	             ./.
+9	             AA
+10	           ./.
+Only 5 individuals have genotype calls.
+5/10 = 0.5
+This SNP would be removed.
+
+## Why this matters in ddRAD ##
+ddRAD datasets often contain many loci missing in some individuals because:
+restriction sites mutate
+uneven sequencing depth
+allele dropout
+inconsistent digestion
+
+So --max-missing helps keep loci that are consistently represented across samples.
+
+######## Overall purpose of your filtering pipeline ######
+
+Your filters are trying to keep variants that are:
+confidently called
+reliably genotyped
+sufficiently represented
+biologically meaningful
+minimally affected by technical artifacts
+
+## Simplified interpretation of your pipeline ##
+Filter	                       Removes
+minQ30	                  low-confidence SNPs
+minGQ30	                 uncertain genotypes
+remove indels	            complicated variants
+remove-filtered-all	       caller-flagged variants
+mac3	                 ultra-rare suspicious alleles
+hwe 0.05	               abnormal loci/artifacts
+imiss	                    poor-quality individuals
+max-missing	               poorly represented SNPs
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
