@@ -484,6 +484,39 @@ screen -r indexingbam //code to get back into a screen named indexingbam
 
  qualimap bamqc -bam *_aligned_reads_sorted.bam -outdir qualimap_results -outformat HTML
 
+#################################################################################################################################
+
+## Extracting just the sample names without "_L001_R1_001.fastq.gz" ##
+
+for f in *.fastq.gz; do
+    echo "${f%%_L001_R1_001.fastq.gz}"
+done > sample_names.txt
+
+// a text file gets created with the name of all samples.
+
+## viewing the entire text file ##
+cat sample_names.txt 
+
+## counting the total number of fastq files ending with "_L001_R2_001.fastq.gz" ##
+
+ls *_L001_R2_001.fastq.gz | wc -l
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
