@@ -26,6 +26,10 @@ bcftools view \
 
 878902 - this is the number of variants that I got after filtering the vcf file obtained using strelka.
 
+## moving the "filtered_strelka.vcf" file to "variant_filtering" folder. 
+mv /home/alex/ddRAD/analysis/popgen/filtered_strelka.vcf \
+/home/alex/ddRAD/analysis/variant_filtering/
+
 ### applying mac3 filter to the "filtered_strelka.vcf
 " file.
  
