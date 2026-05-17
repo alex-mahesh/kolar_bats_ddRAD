@@ -22,6 +22,9 @@ bcftools view \
   variants.vcf.gz \
   -Ov -o filtered_strelka.vcf
 
+## this variants.vcf.gz is the file that i am using for further downstream analysis. 
+/home/alex/ddRAD/analysis/read_mapping/strelka_output/results/variants -it is in this folder.
+
 /home/alex/ddRAD/analysis/read_mapping/strelka_output/results/variants/filtered_strelka.vcf
 
 878902 - this is the number of variants that I got after filtering the vcf file obtained using strelka.
