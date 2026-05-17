@@ -26,6 +26,21 @@ bcftools view \
 
 878902 - this is the number of variants that I got after filtering the vcf file obtained using strelka.
 
+### applying mac3 filter to the "filtered_strelka.vcf
+" file.
+ 
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
