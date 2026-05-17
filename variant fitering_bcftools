@@ -30,9 +30,79 @@ bcftools view \
 mv /home/alex/ddRAD/analysis/popgen/filtered_strelka.vcf \
 /home/alex/ddRAD/analysis/variant_filtering/
 
-### applying mac3 filter to the "filtered_strelka.vcf
-" file.
- 
+### applying mac3 filter to the "filtered_strelka.vcf" file.
+i am using vcf tools for filering as bcftools was giving error
+
+vcftools --vcf filtered_strelka.vcf \
+--mac 3 \
+--recode \
+--recode-INFO-all \
+--out filtered_mac3
+
+## What this does
+--mac 3 // Keeps only variants where the minor allele count ≥ 3.
+
+--recode // Writes a new filtered VCF.
+
+--recode-INFO-all //Preserves INFO fields from the original VCF.
+
+--out filtered_mac3 //Creates: filtered_mac3.recode.vcf
+// filtered_mac3.recode.vcf - we get this vcf file
+
+## counting the number of variants ##
+
+zgrep -vc "^#" filtered_mac3.recode.vcf
+
+This: ignores header lines (#) and counts only variant records
+539784 -the no of variants after applying mac3
+
+#### Viewing the vcf file using bcftools ###
+A very nice readable method:
+
+bcftools view filtered_MAC3.vcf.gz | less -S
+
+Options:
+less -S // it prevents line wrapping
+Use arrow keys to scroll horizontally
+
+### applying the "hwe-0.05" filter
+I am doing this combined for all the species
+
+vcftools \
+--vcf filtered_mac3.recode.vcf \
+--hwe 0.05 \
+--recode \
+--out filtered_mac3_hwe
+
+// filtered_mac3_hwe.recode.vcf - this vcf file will be created
+
+## What this does ##
+--hwe 0.05
+removes SNPs with: HWE p-value < 0.05
+These are variants that significantly deviate from Hardy–Weinberg expectations.
+Biological meaning
+Variants failing HWE may indicate: sequencing/genotyping errors, paralogous mapping, contamination, strong selection,population structure/inbreeding
+So filtering helps improve SNP reliability.
+
+## counting the number of remaining variants in the vcf file ##
+
+grep -vc "^#" filtered_mac3_hwe.recode.vcf
+
+315550 - the number of variants remaining after filtering
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
