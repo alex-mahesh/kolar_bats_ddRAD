@@ -1,0 +1,332 @@
+
+##converting .bcf file to .vcf file
+bcftools view raw_variants2.bcf -Ov -o raw_variants2.vcf
+
+bcftools view → reads the BCF file
+-Ov → output format = VCF (uncompressed text)
+-o raw_variants2.vcf → writes to a .vcf file
+
+## doing the vairant filtering using bcf tools##
+bcftools view \
+  -f PASS \
+  -v snps \
+  -i 'QUAL>=30 && FORMAT/GQ>=30' \
+  raw_variants2.vcf \
+  -Ov -o final_filtered.vcf
+
+#### doing variant filtering for the vcf file obtained using strelka####
+bcftools view \
+  -f PASS \
+  -v snps \
+  -i 'QUAL>=30 && FORMAT/GQ>=30' \
+  variants.vcf.gz \
+  -Ov -o filtered_strelka.vcf
+
+## this variants.vcf.gz is the file that i am using for further downstream analysis. 
+/home/alex/ddRAD/analysis/read_mapping/strelka_output/results/variants -it is in this folder.
+
+/home/alex/ddRAD/analysis/read_mapping/strelka_output/results/variants/filtered_strelka.vcf
+
+878902 - this is the number of variants that I got after filtering the vcf file obtained using strelka.
+
+## moving the "filtered_strelka.vcf" file to "variant_filtering" folder. 
+mv /home/alex/ddRAD/analysis/popgen/filtered_strelka.vcf \
+/home/alex/ddRAD/analysis/variant_filtering/
+
+### applying mac3 filter to the "filtered_strelka.vcf" file.
+i am using vcf tools for filering as bcftools was giving error
+
+vcftools --vcf filtered_strelka.vcf \
+--mac 3 \
+--recode \
+--recode-INFO-all \
+--out filtered_mac3
+
+## What this does
+--mac 3 // Keeps only variants where the minor allele count ≥ 3.
+
+--recode // Writes a new filtered VCF.
+
+--recode-INFO-all //Preserves INFO fields from the original VCF.
+
+--out filtered_mac3 //Creates: filtered_mac3.recode.vcf
+// filtered_mac3.recode.vcf - we get this vcf file
+
+## counting the number of variants ##
+
+zgrep -vc "^#" filtered_mac3.recode.vcf
+
+This: ignores header lines (#) and counts only variant records
+539784 -the no of variants after applying mac3
+
+#### Viewing the vcf file using bcftools ###
+A very nice readable method:
+
+bcftools view filtered_MAC3.vcf.gz | less -S
+
+Options:
+less -S // it prevents line wrapping
+Use arrow keys to scroll horizontally
+
+### applying the "hwe-0.05" filter
+I am doing this combined for all the species
+
+vcftools \
+--vcf filtered_mac3.recode.vcf \
+--hwe 0.05 \
+--recode \
+--out filtered_mac3_hwe
+
+// filtered_mac3_hwe.recode.vcf - this vcf file will be created
+
+## What this does ##
+--hwe 0.05
+removes SNPs with: HWE p-value < 0.05
+These are variants that significantly deviate from Hardy–Weinberg expectations.
+Biological meaning
+Variants failing HWE may indicate: sequencing/genotyping errors, paralogous mapping, contamination, strong selection,population structure/inbreeding
+So filtering helps improve SNP reliability.
+
+## counting the number of remaining variants in the vcf file ##
+
+grep -vc "^#" filtered_mac3_hwe.recode.vcf
+
+315550 - the number of variants remaining after filtering
+
+#### Apply the individual missingness filter ####
+
+vcftools --vcf  filtered_mac3_hwe.recode.vcf --missing-indv
+// out.imiss  out.log - these two files get created.
+
+# the above command gives you an output file out.imiss. If you open this file you can see the fraction of missing sites 
+for each inidividual in the column fmiss.
+# we want to remove the individuals which have a high proportion of missing sites
+
+### Removing individuals which have missing proportion greater than 60 percent.###
+
+vcftools --vcf filtered_mac3_hwe.recode.vcf \
+ --remove <(awk '$5 > 0.6 {print $1}' out.imiss) --recode --out filtered_mac3_hwe_imiss_0.6
+
+After filtering, kept 3 out of 72 Individuals   // only 3 individuals are kept
+After filtering, kept 315550 out of a possible 315550 Sites
+
+## removing samples with >90% missing data ## (just trying this out)
+
+vcftools --vcf filtered_mac3_hwe.recode.vcf \
+ --remove <(awk '$5 > 0.9 {print $1}' out.imiss) --recode --out filtered_mac3_hwe_imiss_0.9
+
+After filtering, kept 60 out of 72 Individuals
+
+#### Apply a missingness filter (max-missing) to only keep variants which are common among a proportion of individuals ####
+## Do a for loop to apply missingness filter from 0.1 to 0.9 (variants which are found in 10% to 90%)
+
+for miss in {10..90..10}; do
+
+  perc=$(echo "scale=2; $miss / 100" | bc)
+
+  echo "Running max-missing = $perc"
+
+  vcftools --vcf filtered_mac3_hwe_imiss_0.9.recode.vcf \
+           --max-missing $perc \
+           --out filtered_mac3_hwe_imiss_0.9_miss_${miss} \
+           --recode
+
+done
+// we get a recode.vcf file for each of the missing value
+
+## Extract the number of variants remaining upon applying missingness filter from 0.1 to 0.9 and make a .txt file.
+
+for miss in {10..90..10}; do
+    count=$(grep -vc "^#" filtered_mac3_hwe_imiss_0.9_miss_${miss}.recode.vcf)
+    echo "${miss} ${count}" >> variant_counts.txt
+done
+// variant_counts.txt gets generated
+
+### ploting the variant_counts.txt using R ###
+## creating an R script to run ##
+
+nano plot_variants.R
+//this creates an R script named plot_variants.R
+
+## copy the below code into the R script ##
+library(ggplot2)
+library(scales)
+
+data <- read.table(
+  "variant_counts.txt",
+  header = FALSE,
+  col.names = c("Missingness", "Variants")
+)
+
+p <- ggplot(data, aes(x = Missingness, y = Variants)) +
+  geom_line(color = "blue") +
+  geom_point(color = "red") +
+  ggtitle("Number of Passed Variants vs. Missingness Filter") +
+  xlab("Max Missingness (%)") +
+  ylab("Number of Variants") +
+  scale_y_continuous(labels = comma) +
+  scale_x_continuous(limits = c(10, 90)) +
+  theme_minimal()
+
+ggsave("variant_plot.png", plot = p)
+
+to Save: Ctrl + O
+Enter :to confirm name
+Ctrl + X : to exit
+
+
+
+### editing text files in server ###
+
+nano variant_counts.txt
+
+Then: make any changes that we like
+save with: Ctrl + O
+exit with: Ctrl + X
+
+## activating R env ##
+conda activate R
+
+## running the script ##
+Rscript plot_variants.R
+
+// a "plot_variant.png" file gets created
+
+## copying this file to the laptop ##
+scp alex@10.58.98.103:/home/alex/ddRAD/analysis/variant_filtering/variant_plot.png .
+// file gets copied to linux home
+
+### applying max missing 0.3 (it is 0.6 in the workshop) ###
+Important interpretation
+--max-missing refers to the fraction of individuals with NON-missing data.
+So:
+Filter	                       Meaning
+--max-missing 0.9	    SNP present in ≥90% individuals
+--max-missing 0.8	    SNP present in ≥80% individuals
+--max-missing 0.6	    SNP present in ≥60% individuals
+Higher value = stricter filtering.
+
+## Biological tradeoff ##
+Lower threshold (0.6)
+Pros: keeps more SNPs, useful for sparse ddRAD data
+
+Cons: more missing data/noise, may affect PCA/ADMIXTURE
+
+Higher threshold (0.9)
+Pros: cleaner dataset, more reliable SNPs
+
+Cons: many SNPs removed, may lose population signal
+
+## Your plot is useful for choosing this ##
+Your variant_plot.png likely shows:
+SNP count drops sharply as max-missing becomes stricter.
+That curve helps choose a balance between: data quality, SNP retention.
+
+// I will be using this file -"filtered_mac3_hwe_imiss_0.9_miss_30.recode.vcf" 
+this file was obtained from the previous command -loop for max missing 0.1 to 0.9
+
+#### Use site mean depth filter to get informaion about mean depth at each variant site ####
+
+vcftools --vcf filtered_mac3_hwe_imiss_0.9_miss_30.recode.vcf --site-mean-depth --out depth
+
+// depth.ldepth.mean - this file gets generated
+
+#### Using site mean depth filter to get informaion about mean depth at each variant site ####
+#find the percentile depth between 0.05 and 0.975, the middle 95 percentile.
+#below 0.05 because low conf
+#above 97.5 because of presence of repetitive regions or less complex regions
+
+conda activate R
+press"R" (to open R in the server)
+
+depth_data <- read.table("depth.ldepth.mean", header = TRUE)
+depths <- depth_data$MEAN_DEPTH
+lower_bound <- quantile(depths, 0.025, na.rm = TRUE)
+upper_bound <- quantile(depths, 0.975, na.rm = TRUE)
+cat("Middle 95% range:", lower_bound, "to", upper_bound, "\n")
+
+//after running this code in R it will give a lower bound and upper bound in the terminal itself.
+Middle 95% range: 0.366667 to 4.05
+
+### Apply filters to keep only the variants that have depth values lying in the above range ###
+
+conda activate vcftools
+
+vcftools --vcf filtered_mac3_hwe_imiss_0.9_miss_30.recode.vcf --min-meanDP 0.366667 --max-meanDP 4.05 \
+--recode --out filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile
+
+//After filtering, kept 170665 out of a possible 180066 Sites
+// filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile.recode.vcf -this is the final vcf file that we have obtained after all the filtering.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
