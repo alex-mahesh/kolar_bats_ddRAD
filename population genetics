@@ -82,6 +82,115 @@ plink --bfile dataset_pruned_clean \
       --make-bed \
       --out dataset_admix
 
+################################################################################################################################################
+
+## location of the filtered vcf file ##
+/home/alex/ddRAD/analysis/variant_filtering/filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile.recode.vcf
+## location for it to be copied to ##
+/home/alex/ddRAD/analysis/popgen
+
+## copying the file to the popgen folder ##
+cp /home/alex/ddRAD/analysis/variant_filtering/filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile.recode.vcf /home/alex/ddRAD/analysis/popgen/
+
+## viewing the current name of the samples in the vcf file ##
+bcftools query -l filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile.recode.vcf
+// this will display the name of the samples in the terminal
+
+## creating a new text file to rename the samples ##
+nano rename_samples.txt
+// after this enter the sample names under the following columns- old_name new_name
+Ctrl + O - to save the entered text
+Enter - to save the txt file name
+Ctrl + X - to exit nano
+
+## changing the names of the vcf file ##
+
+bcftools reheader \
+-s rename_samples.txt \
+-o renamed.vcf \
+filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile.recode.vcf
+
+// after this a new vcf file named "renamed.vcf"gets created.
+
+## verifying if the names have changed or not ##
+bcftools query -l renamed.vcf
+
+### converting vcf to plink format ###
+
+plink --vcf renamed.vcf \
+      --allow-extra-chr \
+      --set-missing-var-ids @:# \
+      --make-bed \
+      --out pca_data
+
+// 170665 variants and 60 people pass filters and QC.
+Note: No phenotypes present. // this was shown on terminal
+// pca_data.bim,  pca_data.log, pca_data.bed, pca_data.fam,  pca_data.nosex - these files are generated.
+
+### Running the PCA####
+plink --bfile pca_data \
+      --allow-extra-chr \
+      --pca 5 \
+      --out pca
+
+// Results saved to pca.eigenval and pca.eigenvec -these 2 files get created.
+
+## creating a species information file named species.txt ##
+
+nano species.txt
+// sample	species
+HH_1	H.hypophyllus
+HH_2	H.hypophyllus
+HH_3	H.hypophyllus - the species information is entered into the txt file.
+
+## plotting the PCA ##
+
+library(ggplot2)
+pca <- read.table("pca.eigenvec", header=FALSE, stringsAsFactors=FALSE)
+colnames(pca) <- c("FID","IID","PC1","PC2","PC3","PC4","PC5")
+species <- read.table("species.txt", header=TRUE)
+merged <- merge(pca, species, by.x="IID", by.y="sample")
+
+ggplot(merged, aes(x=PC1, y=PC2, color=species)) +
+    geom_point(size=4) +
+    labs(
+        title="PCA plot",
+        x="PC1",
+        y="PC2",
+        color="species"
+    ) +
+    theme_classic()
+ggsave("PCA_plot2.png", width=8, height=6)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
