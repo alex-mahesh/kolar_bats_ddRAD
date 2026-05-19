@@ -1,0 +1,88 @@
+
+## converting vcf to plink format ##
+
+plink --vcf renamed.vcf \
+      --make-bed \
+      --out pca_data \
+      --allow-extra-chr \
+      --set-missing-var-ids @:# \
+      --double-id
+
+      //Total genotyping rate is 0.282246.
+170665 variants and 60 people pass filters and QC. -got this msg in terminal
+//  pca_data.bim  pca_data.log pca_data.bed pca_data.fam  pca_data.nosex - these files get generated
+
+## Running the PCA ##
+
+plink --bfile pca_data \
+      --pca 10 \
+      --out my_pca \
+      --allow-extra-chr
+
+//  Results saved to my_pca.eigenval and my_pca.eigenvec - these 2 files get generated
+
+
+## Create a Population File. You need to map each sample to its species based on the prefix ##
+
+awk '{
+    split($2, a, "_");
+    prefix = a[1];
+    if (prefix == "HH") sp = "H.Hypophyllus"
+    else if (prefix == "HD") sp = "H.Durgadasi"
+    else if (prefix == "HS") sp = "H.Speoris"
+    else sp = "Unknown"
+    printf "%s %s %s", $1, $2, sp
+    for (i = 3; i <= NF; i++) printf " %s", $i   # <-- this prints PC1..PC10
+    print ""
+}' my_pca.eigenvec > my_pca_with_pop.txt
+
+//my_pca_with_pop.txt -this file gets generated
+
+## plotting PCA in R ##
+
+library(ggplot2)
+
+# ── Load data ──────────────────────────────────────────────────
+pca <- read.table("my_pca_with_pop.txt", header = FALSE)
+
+# Name columns: FID, IID, Species, PC1, PC2, ...
+n_pcs <- ncol(pca) - 3
+colnames(pca) <- c("FID", "IID", "Species",
+                   paste0("PC", seq_len(n_pcs)))
+
+# ── Load eigenvalues for % variance explained ──────────────────
+eigenval <- scan("my_pca.eigenval")
+pve <- round((eigenval / sum(eigenval)) * 100, 2)
+
+# ── Define colours per species ─────────────────────────────────
+species_colors <- c(
+  "H.Hypophyllus" = "#E41A1C",   # red
+  "H.Durgadasi" = "#377EB8",   # blue
+  "H.Speoris" = "#4DAF4A"    # green
+)
+
+# ── Plot ───────────────────────────────────────────────────────
+species_colors <- c(
+  "Species_1" = "#E41A1C",   # red
+  "Species_2" = "#377EB8",   # blue
+  "Species_3" = "#4DAF4A"    # green
+)
+# ── Save ───────────────────────────────────────────────────────
+ggsave("pca_plot.png", plot = p, width = 8, height = 6, dpi = 300)
+
+########################################################################################################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      
