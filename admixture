@@ -15,13 +15,38 @@ plink --bfile pca_data \
       --set-missing-var-ids @:#
 // if your chromosomes are named like scaffold_1, chr1 etc., you need to recode them to numbers.
 
+#################################
+The Safe Way to Recode (this was used as the above code gave error)
+Don't use the simple NR % 95 awk trick from before — that can cause collisions. Use this instead, which assigns clean sequential numbers:
+bash# First, get the list of unique chromosome names in order
+
+cut -f1 pca_data.bim | sort -u > chrom_names.txt
+
+# Check how many chromosomes you have
+wc -l chrom_names.txt
+
+// 25 chrom_names.txt -there are 25 chromosome names
+
+Then recode:
+## Create a chromosome name mapping file ##
+
+awk '{print $0, NR}' chrom_names.txt > chrom_map.txt
+
+# Recode the .bim file using the mapping
+awk 'NR==FNR {map[$1]=$2; next} {$1=map[$1]; print}' \
+    chrom_map.txt pca_data.bim > my_data_admix.bim
+
 ## Run ADMIXTURE for each K with 10-fold cross-validation ##
+
+## installing admixture ##
+conda create -n admixture -c conda-forge -c bioconda admixture
+conda activate admixture
 
 for K in $(seq 1 10); do
     admixture --cv=10 -j4 my_data_admix.bed $K | tee log_K${K}.txt
 done
 
-// log_K1.txt   log_K2.txt  log_K4.txt  log_K6.txt  log_K8.txt -you get text like this for values from K=1 to 10
+// log_K1.txt   log_K2.txt  my_data_admix.2.P  my_data_admix.5.P my_data_admix.3.Q  my_data_admix.6.Q -you get text,.P,.Q files for values from K=1 to 10
 
 ## Step 3: Extract Cross-Validation Errors ##
 ## Collect CV errors from all log files ##
@@ -43,6 +68,11 @@ awk '{
 ## Step 5: Plot in R ##
 ## creating a file for R script that is required for plotting admixture ##
 nano plot_admixture.R
+
+// save the below script to the plot_admixture.R script
+## Running the R script ##
+conda activate R
+Rscript plot_admixture.R
 
 library(ggplot2)
 library(tidyr)
@@ -176,6 +206,10 @@ combined <- arrangeGrob(grobs = plots, ncol = 1)
 ggsave("admixture_all_K.png", combined,
        width = 14, height = 4 * length(plots), dpi = 300)
 cat("Combined plot saved as admixture_all_K.png\n")
+
+// after running the R script, we get the following files
+admixture_K2.png, admixture_K3.png, cv_error_plot.png
+
 
 
 
