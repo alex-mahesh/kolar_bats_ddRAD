@@ -72,6 +72,57 @@ ggsave("pca_plot.png", plot = p, width = 8, height = 6, dpi = 300)
 
 ########################################################################################################################################
 
+## doing PCA using R script ##
+
+nano plot_pca.R // this opens a text file for R script
+// save the below script to .R file
+
+library(ggplot2)
+
+# ── Load PCA eigenvec directly (no intermediate file needed) ───
+pca <- read.table("my_pca.eigenvec", header = FALSE)
+n_pcs <- ncol(pca) - 2
+colnames(pca) <- c("FID", "IID", paste0("PC", seq_len(n_pcs)))
+
+# ── Assign species from sample ID prefix ───────────────────────
+pca$Species <- ifelse(grepl("^HH_", pca$IID), "H.Hypophyllus",
+               ifelse(grepl("^HD_", pca$IID), "H.Durgadasi",
+               ifelse(grepl("^HS_", pca$IID), "H.Speoris", "Unknown")))
+
+# ── Load eigenvalues ───────────────────────────────────────────
+eigenval <- scan("my_pca.eigenval")
+pve <- round((eigenval / sum(eigenval)) * 100, 2)
+
+# ── Define colours ─────────────────────────────────────────────
+species_colors <- c(
+  "H.Hypophyllus" = "#E41A1C",
+  "H.Durgadasi"   = "#377EB8",
+  "H.Speoris"     = "#4DAF4A"
+)
+
+# ── Build plot ─────────────────────────────────────────────────
+p <- ggplot(pca, aes(x = PC1, y = PC2, color = Species)) +
+  geom_point(size = 3, alpha = 0.85) +
+  scale_color_manual(values = species_colors, name = "Species") +
+  labs(
+    title = "PCA Plot",
+    x     = paste0("PC1 (", pve[1], "% variance explained)"),
+    y     = paste0("PC2 (", pve[2], "% variance explained)")
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title   = element_text(hjust = 0.5, face = "bold", size = 16),
+    legend.position = "right",
+    legend.title = element_text(face = "bold")
+  )
+
+# ── Save ───────────────────────────────────────────────────────
+ggsave("pca_plot.png", plot = p, width = 8, height = 6, dpi = 300)
+cat("Done! Plot saved as pca_plot.png\n")
+
+// Ctrl + O -to save, Enter -to save the file name, Ctrl-X to exit
+
+
 
 
 
