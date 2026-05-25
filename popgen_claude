@@ -132,6 +132,9 @@ cat("Done! Plot saved as pca_plot.png\n")
 
 // Ctrl + O -to save, Enter -to save the file name, Ctrl-X to exit
 
+## running the R script ##
+Rscript plot_pca.R
+
 
 
 
