@@ -258,6 +258,28 @@ vcftools --vcf filtered_mac3_hwe_imiss_0.9_miss_30.recode.vcf --min-meanDP 0.366
 //After filtering, kept 170665 out of a possible 180066 Sites
 // filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile.recode.vcf -this is the final vcf file that we have obtained after all the filtering.
 
+#### Removing the sex chromosome ###
+First we need to check the assembly report on the NCBI Assembly page to see whether it is:
+chromosome-level, scaffold-level, contig-level and whether X/Y chromosomes were identified.
+The assembly report usually contains entries like: Chromosome X, Chromosome Y or only scaffolds. 
+The reference genome that I have used is a chromsome level assembly and has entries like this: X	CM063105.1. Y chromosome is not annotated in this genome.
+
+## removing the X chromosome from the vcf file ##
+
+bcftools view \
+    --targets ^CM063105.1 \
+    filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile.recode.vcf \
+    -Oz -o filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only.vcf
+
+## counting the number of remaining variants in the vcf file ##
+
+grep -vc "^#" filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only.vcf
+
+## checking for Y chromosome ##
+
+# downloading a SRY fasta sequence #
+wget -O SRY_region.fasta "https://www.ncbi.nlm.nih.gov/sviewer/viewer.fcgi?id=NW_017731757.1&from=1658131&to=1659454&db=nuccore&report=fasta"
+
 
 
 
