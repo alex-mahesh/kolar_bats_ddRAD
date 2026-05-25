@@ -11,12 +11,12 @@ cp /home/alex/ddRAD/analysis/variant_filtering/filtered_mac3_hwe_imiss_0.9_miss_
 
 bcftools reheader \
 -s rename_samples.txt \
--o filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_renamed \
+-o filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_renamed.vcf \
 filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only.vcf
 
 ## converting vcf to plink format ##
 
-plink --vcf filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only.vcf \
+plink --vcf filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_renamed.vcf \
       --make-bed \
       --out pca_data \
       --allow-extra-chr \
