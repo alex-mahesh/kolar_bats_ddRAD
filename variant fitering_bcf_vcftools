@@ -275,11 +275,81 @@ bcftools view \
 
 grep -vc "^#" filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only.vcf
 
+// 1,65,587 -number of variants remaining.
+
 ## checking for Y chromosome ##
 
 # downloading a SRY fasta sequence #
-wget -O SRY_region.fasta "https://www.ncbi.nlm.nih.gov/sviewer/viewer.fcgi?id=NW_017731757.1&from=1658131&to=1659454&db=nuccore&report=fasta"
+wget -O SRY_sequence.fasta "https://www.ncbi.nlm.nih.gov/sviewer/viewer.fcgi?id=NC_138120.1&from=6423088&to=6423648&report=fasta"
+// this is SRY gene from Miniopterus schreibersii
 
+## creating conda environment for blast ##
+conda create -n blastn -c conda-forge -c bioconda blast
+
+## First create a BLAST database using makeblastdb. ##
+Right now, your .fna file is just a FASTA file, not a BLAST database.
+Run this first:
+
+makeblastdb \
+    -in GCA_031876335.1_mHipLar1.pri_genomic.fna \
+    -dbtype nucl
+
+## Then run the blastn command again. ##
+
+blastn \
+    -query SRY_sequence.fasta \
+    -db GCA_031876335.1_mHipLar1.pri_genomic.fna \
+    -out SRY_hits.txt \
+    -outfmt 6
+
+// the SRY_hits file is empty, which means that there are no hits.
+
+If your reference genome lacks a Y chromosome, then reads originating from the biological Y chromosome in your male samples will behave in several different ways during mapping.
+This is a very important concept in population genomics.
+
+What happens during mapping?
+When you map reads, the aligner (like BWA or Bowtie 2) tries to find the best matching location in the reference genome.
+
+If the reference genome has: autosomes, X chromosome, but NO Y chromosome, then true Y-derived reads have nowhere perfect to align.
+
+Possible outcomes for Y reads
+1. Many Y reads fail to map
+This is the most common outcome. Because there is no matching sequence in the reference:
+Y read → no suitable alignment → unmapped
+These reads appear in the BAM file as unmapped reads.
+Example SAM flag: 4 = unmapped
+
+2. Some Y reads map incorrectly to similar regions
+The mammalian X and Y chromosomes share homologous regions.
+So some Y reads may incorrectly map to:
+X chromosome
+repetitive regions
+paralogous autosomal regions
+
+Example:
+Y read → partial similarity to X → mapped to X
+
+This can create: false SNPs, inflated heterozygosity, mapping artifacts
+
+3. Highly repetitive Y reads get discarded
+The Y chromosome is full of repeats and duplicated regions.
+
+Many aligners: assign low mapping quality or discard multi-mapping reads
+So lots of Y reads never contribute to variant calling.
+In ddRAD specifically, this effect is usually MUCH smaller than in whole-genome sequencing.
+Why?
+ddRAD captures only fragments near restriction enzyme sites.
+That means: only a tiny fraction of Y chromosome is sequenced and many Y repetitive regions are never sampled
+
+So in practice:
+most Y reads are absent or filtered automatically during mapping/variant calling
+What this means for your analysis: Since your reference lacks Y chromosome: Good news
+
+Most Y reads likely: failed to map or were filtered out already
+So your VCF probably contains very little Y information.
+
+Remaining concern
+Some Y-derived reads may have incorrectly mapped to X chromosome or autosomes. That is one reason why removing the X chromosome afterward is a good idea.
 
 
 
