@@ -1,15 +1,24 @@
 
+## location of the filtered vcf file ##
+/home/alex/ddRAD/analysis/variant_filtering/filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only.vcf
+## location for it to be copied to ##
+/home/alex/ddRAD/analysis/popgen
+
+## copying the file to the popgen folder ##
+cp /home/alex/ddRAD/analysis/variant_filtering/filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only.vcf /home/alex/ddRAD/analysis/popgen/
+
 ## converting vcf to plink format ##
 
-plink --vcf renamed.vcf \
+plink --vcf filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only.vcf \
       --make-bed \
       --out pca_data \
       --allow-extra-chr \
       --set-missing-var-ids @:# \
       --double-id
 
-      //Total genotyping rate is 0.282246.
-170665 variants and 60 people pass filters and QC. -got this msg in terminal
+// Total genotyping rate is 0.282274.
+165587 variants and 60 people pass filters and QC.
+Note: No phenotypes present. -got this msg in terminal
 //  pca_data.bim  pca_data.log pca_data.bed pca_data.fam  pca_data.nosex - these files get generated
 
 ## Running the PCA ##
@@ -37,6 +46,7 @@ awk '{
 }' my_pca.eigenvec > my_pca_with_pop.txt
 
 //my_pca_with_pop.txt -this file gets generated
+
 
 ## plotting PCA in R ##
 
