@@ -25,7 +25,7 @@ cut -f1 pca_data.bim | sort -u > chrom_names.txt
 # Check how many chromosomes you have
 wc -l chrom_names.txt
 
-// 25 chrom_names.txt -there are 25 chromosome names
+// 24 chrom_names.txt -there are 24 chromosome names (it was 25 before removing X chromosome)
 
 Then recode:
 ## Create a chromosome name mapping file ##
@@ -36,14 +36,25 @@ awk '{print $0, NR}' chrom_names.txt > chrom_map.txt
 awk 'NR==FNR {map[$1]=$2; next} {$1=map[$1]; print}' \
     chrom_map.txt pca_data.bim > my_data_admix.bim
 
-## Run ADMIXTURE for each K with 10-fold cross-validation ##
+# Copy the other files unchanged
+cp pca_data.bed my_data_admix.bed
+cp pca_data.fam my_data_admix.fam
+// my_data_admix.bed my_data_admix.fam -these 2 files get created
+
+## Verify the Recoding Worked ##
+// Should show numbers like 1, 2, 3 ... instead of CM063088.1 etc.
+cut -f1 my_data_admix.bim | sort -u
+
+## Run ADMIXTURE for each K with 10-fold cross-validation ## 
+// running admixture on screen as it takes time
+screen -S admixture // creates a screen
 
 ## installing admixture ##
 conda create -n admixture -c conda-forge -c bioconda admixture
 conda activate admixture
 
 for K in $(seq 1 10); do
-    admixture --cv=10 -j4 my_data_admix.bed $K | tee log_K${K}.txt
+    admixture --cv=10 -j10 my_data_admix.bed $K | tee log_K${K}.txt
 done
 
 // log_K1.txt   log_K2.txt  my_data_admix.2.P  my_data_admix.5.P my_data_admix.3.Q  my_data_admix.6.Q -you get text,.P,.Q files for values from K=1 to 10
