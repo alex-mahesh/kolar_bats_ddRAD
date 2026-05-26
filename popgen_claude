@@ -1,30 +1,30 @@
 
 ## location of the filtered vcf file ##
-/home/alex/ddRAD/analysis/variant_filtering/filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only.vcf
+/home/alex/ddRAD/analysis/variant_filtering/filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_sampes_removed.vcf
 ## location for it to be copied to ##
 /home/alex/ddRAD/analysis/popgen
 
 ## copying the file to the popgen folder ##
-cp /home/alex/ddRAD/analysis/variant_filtering/filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only.vcf /home/alex/ddRAD/analysis/popgen/
+cp /home/alex/ddRAD/analysis/variant_filtering/filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_sampes_removed.vcf /home/alex/ddRAD/analysis/popgen/
 
-## changing the names of the samples in the vcf file ##
+## changing the names of the samples in the vcf file ## (I have removed the potentially mislabelled samples)
 
 bcftools reheader \
 -s rename_samples.txt \
--o filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_renamed.vcf \
-filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only.vcf
+-o filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_sampes_removed_renamed.vcf \
+filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_sampes_removed.vcf
 
 ## converting vcf to plink format ##
 
-plink --vcf filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_renamed.vcf \
+plink --vcf filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_sampes_removed_renamed.vcf \
       --make-bed \
       --out pca_data \
       --allow-extra-chr \
       --set-missing-var-ids @:# \
       --double-id
 
-// Total genotyping rate is 0.282274.
-165587 variants and 60 people pass filters and QC.
+// Total genotyping rate is 0.286139.
+165587 variants and 54 people pass filters and QC.
 Note: No phenotypes present. -got this msg in terminal
 //  pca_data.bim  pca_data.log pca_data.bed pca_data.fam  pca_data.nosex - these files get generated
 
@@ -141,6 +141,105 @@ cat("Done! Plot saved as pca_plot.png\n")
 
 ## running the R script ##
 Rscript plot_pca.R
+
+#################################################################################################################################################
+
+### identifiying samples that has shown up in differnt clusters than expected ###
+
+# creating an R script #
+nano pca_withlabel.R
+// copy the below code into it. To save Ctrl +O, Enter to save the name; Ctrl +X to exit
+
+# Install if needed
+install.packages("ggrepel", repos = "https://cloud.r-project.org")
+
+library(ggplot2)
+library(ggrepel)
+
+# ── Load data ──────────────────────────────────────────────────
+pca <- read.table("my_pca.eigenvec", header = FALSE)
+n_pcs <- ncol(pca) - 2
+colnames(pca) <- c("FID", "IID", paste0("PC", seq_len(n_pcs)))
+
+pca$Species <- ifelse(grepl("^HH_", pca$IID), "H.Hypophyllus",
+               ifelse(grepl("^HD_", pca$IID), "H.Durgadasi",
+               ifelse(grepl("^HS_", pca$IID), "H.Speoris", "Unknown")))
+
+eigenval <- scan("my_pca.eigenval")
+pve <- round((eigenval / sum(eigenval)) * 100, 2)
+
+species_colors <- c(
+  "H.Hypophyllus" = "#E41A1C",
+  "H.Durgadasi"   = "#377EB8",
+  "H.Speoris"     = "#4DAF4A"
+)
+
+# ── Plot with labels ───────────────────────────────────────────
+p <- ggplot(pca, aes(x = PC1, y = PC2, color = Species, label = IID)) +
+  geom_point(size = 3, alpha = 0.85) +
+  geom_text_repel(
+    size          = 2.8,          # label font size
+    max.overlaps  = 100,          # allow many overlaps to label all
+    box.padding   = 0.4,          # space between label and point
+    point.padding = 0.3,
+    segment.size  = 0.3,          # line connecting label to point
+    segment.alpha = 0.5,
+    show.legend   = FALSE
+  ) +
+  scale_color_manual(values = species_colors, name = "Species") +
+  labs(
+    title = "PCA Plot",
+    x     = paste0("PC1 (", pve[1], "% variance explained)"),
+    y     = paste0("PC2 (", pve[2], "% variance explained)")
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title      = element_text(hjust = 0.5, face = "bold", size = 16),
+    legend.position = "right",
+    legend.title    = element_text(face = "bold")
+  )
+
+ggsave("pca_plot_labelled.png", plot = p, width = 12, height = 9, dpi = 300)
+cat("Labelled PCA plot saved as pca_plot_labelled.png\n")
+
+## running the R script ##
+Rscript pca_withlabel.R
+
+// we get a labelled PCA plot. from this we can figure out which all samples has potentially been mislabelled.
+
+## we have this filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only.vcf file ##
+## removing the potentially mislabelled samples from this ##
+
+# creating a text file with the list of samples to be removed #
+nano remove_samples.txt
+// then save and exit
+
+## removing those samples #
+
+bcftools view \
+    -S ^remove_samples.txt \
+    filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only.vcf \
+    -Ov -o filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_sampes_removed.vcf
+
+// What this means
+-s        = select samples
+^         = exclude these samples
+-Ov       = output uncompressed VCF
+-o        = output file
+This approach is cleaner for large datasets.
+
+## Verify samples were removed ##
+
+# List remaining samples #
+bcftools query -l filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_sampes_removed.vcf
+
+
+# or count them #
+bcftools query -l filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_sampes_removed.vcf | wc -l
+
+// initally there were 60 samples, now only 54 are remaining
+// now we need to redo the PCA and admixture using this vcf file.
+
 
 
 
