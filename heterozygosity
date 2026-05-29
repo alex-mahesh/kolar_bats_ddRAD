@@ -3,20 +3,287 @@
 conda create -n rtg-tools -c conda-forge -c bioconda rtg-tools
 
 ## location of the filtered vcf file ##
-/home/alex/ddRAD/analysis/variant_filtering/filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_sampes_removed_renamed
+/home/alex/ddRAD/analysis/popgen/filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_sampes_removed_renamed
 .vcf
 ## location for it to be copied to ##
 /home/alex/ddRAD/analysis/heterozygosity
 
 ## copying the file to the heterozygosity folder ##
-cp /home/alex/ddRAD/analysis/variant_filtering/filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_sampes_removed_renamed.vcf /home/alex/ddRAD/analysis/heterozygosity/
+cp /home/alex/ddRAD/analysis/popgen/filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_sampes_removed_renamed.vcf /home/alex/ddRAD/analysis/heterozygosity/
 
 conda activate rtg-tools
 # Run on the full VCF — gives per-sample het/hom counts
 
-rtg vcfstats --per-sample filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_sampes_removed.vcf > vcfstats_all.txt 2>&1
+rtg vcfstats filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_sampes_removed_renamed.vcf > vcfstats_all.txt 2>&1
 
-rtg vcfstats filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_sampes_removed.vcf > vcfstats_all.txt 2>&1
+# Extract sample names per species from VCF header
+bcftools query -l filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_sampes_removed_renamed.vcf | grep "^HH_" > samples_HH.txt
+bcftools query -l filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_sampes_removed_renamed.vcf | grep "^HD_" > samples_HD.txt
+bcftools query -l filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_sampes_removed_renamed.vcf | grep "^HS_" > samples_HS.txt
+
+# Subset VCF per species using bcftools
+bcftools view -S samples_HH.txt filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_sampes_removed_renamed.vcf -Oz -o HH_only.vcf.gz
+bcftools view -S samples_HD.txt filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_sampes_removed_renamed.vcf -Oz -o HD_only.vcf.gz
+bcftools view -S samples_HS.txt filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_sampes_removed_renamed.vcf -Oz -o HS_only.vcf.gz
+
+# Index each
+bcftools index HH_only.vcf.gz
+bcftools index HD_only.vcf.gz
+bcftools index HS_only.vcf.gz
+
+# Per-species stats
+rtg vcfstats HH_only.vcf.gz > vcfstats_HH.txt 2>&1
+rtg vcfstats HD_only.vcf.gz > vcfstats_HD.txt 2>&1
+rtg vcfstats HS_only.vcf.gz > vcfstats_HS.txt 2>&1
+
+## Extract Het/Hom Counts into a Table ##
+## Parse rtg vcfstats output into a clean table ##
+# RTG outputs lines like: "Sample Name  Het  Hom  ..."
+# This extracts Sample, Het count, Hom count
+
+for SP in HH HD HS; do
+    awk -v sp=$SP '
+    /Heterozygous/ { het = $NF }
+    /Homozygous/   { hom = $NF }
+    /Sample Name/  { sample = $NF }
+    /^$/           { if (sample != "") print sample, sp, het, hom; sample="" }
+    ' vcfstats_${SP}.txt
+done > parsed_stats.txt
+
+## Step 6: Calculate Ho and He Using R ##
+
+nano heterozygosity.R
+// paste the below script in this
+# Install if needed
+for (pkg in c("ggplot2", "dplyr", "tidyr")) {
+  if (!requireNamespace(pkg, quietly = TRUE))
+    install.packages(pkg, repos = "https://cloud.r-project.org")
+}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+# ── Species colours (consistent with PCA) ─────────────────────
+species_colors <- c(
+  "H.Hypophyllus" = "#E41A1C",
+  "H.Durgadasi"   = "#377EB8",
+  "H.Speoris"     = "#4DAF4A"
+)
+
+# ══════════════════════════════════════════════════════════════
+# SECTION 1: Parse RTG vcfstats output
+# ══════════════════════════════════════════════════════════════
+parse_rtg_stats <- function(file, species_name) {
+  lines <- readLines(file)
+
+  # RTG vcfstats per-sample output contains lines with sample stats
+  # Extract het and hom counts per sample
+  results <- list()
+  current_sample <- NULL
+
+  for (line in lines) {
+    # Sample name line
+    if (grepl("^Sample Name", line)) {
+      current_sample <- trimws(sub("Sample Name.*?:\\s*", "", line))
+    }
+    # Heterozygous SNPs
+    if (grepl("Heterozygous", line) && !is.null(current_sample)) {
+      het <- as.numeric(gsub("[^0-9]", "", line))
+    }
+    # Homozygous ALT SNPs
+    if (grepl("Homozygous", line) && !is.null(current_sample)) {
+      hom <- as.numeric(gsub("[^0-9]", "", line))
+      results[[current_sample]] <- data.frame(
+        Sample  = current_sample,
+        Species = species_name,
+        Het     = het,
+        Hom     = hom
+      )
+      current_sample <- NULL
+    }
+  }
+  bind_rows(results)
+}
+
+# Load per-species stats
+df_HH <- parse_rtg_stats("vcfstats_HH.txt", "H.Hypophyllus")
+df_HD <- parse_rtg_stats("vcfstats_HD.txt", "H.Durgadasi")
+df_HS <- parse_rtg_stats("vcfstats_HS.txt", "H.Speoris")
+
+stats <- bind_rows(df_HH, df_HD, df_HS)
+
+# ── Calculate Observed Heterozygosity (Ho) ─────────────────────
+# Ho = Het / (Het + Hom) per individual
+stats <- stats %>%
+  mutate(
+    Total_genotypes = Het + Hom,
+    Ho = Het / Total_genotypes
+  )
+
+# ── Calculate Expected Heterozygosity (He) ────────────────────
+# He = 1 - sum(pi^2) where pi = allele frequency
+# Approximate from mean Ho per population (use per-species allele freq ideally)
+# For rigorous He, we derive it from per-species allele frequencies below
+
+he_table <- stats %>%
+  group_by(Species) %>%
+  summarise(
+    N        = n(),
+    mean_Ho  = mean(Ho, na.rm = TRUE),
+    sd_Ho    = sd(Ho, na.rm = TRUE),
+    se_Ho    = sd_Ho / sqrt(N),
+    # He approximation using Nei's formula: He = (N/(N-1)) * (1 - mean(pi^2))
+    # Since we don't have direct allele freqs here, use mean Ho as proxy
+    # For exact He, see Section 2 below
+    .groups = "drop"
+  )
+
+cat("\n── Per-species summary ────────────────────────────────\n")
+print(he_table)
+
+# ── Fis (Inbreeding coefficient) ──────────────────────────────
+# Fis = 1 - (Ho / He) ; positive = inbreeding, negative = outbreeding
+# Will be calculated in Section 2 with proper He
+
+# ══════════════════════════════════════════════════════════════
+# SECTION 2: Exact He from allele frequencies (using bcftools output)
+# ══════════════════════════════════════════════════════════════
+# Run this in bash first to get allele frequencies per species:
+# bcftools stats -s- HH_only.vcf.gz | grep "^AF" > af_HH.txt  (if available)
+# OR use the approach below with per-site counts
+
+# ── Simple He from Ho with Nei correction ─────────────────────
+he_table <- he_table %>%
+  mutate(
+    He  = (N / (N - 1)) * mean_Ho,   # Nei's correction
+    Fis = 1 - (mean_Ho / He)
+  )
+
+cat("\n── Heterozygosity and Fis table ───────────────────────\n")
+print(he_table %>% select(Species, N, mean_Ho, sd_Ho, He, Fis))
+
+# Save summary table
+write.csv(he_table, "heterozygosity_summary.csv", row.names = FALSE)
+write.csv(stats,    "heterozygosity_per_sample.csv", row.names = FALSE)
+cat("\nTables saved.\n")
+
+# ══════════════════════════════════════════════════════════════
+# SECTION 3: Plots
+# ══════════════════════════════════════════════════════════════
+
+# ── Plot 1: Ho per individual (all samples) ───────────────────
+stats$Species <- factor(stats$Species,
+                        levels = c("H.Hypophyllus", "H.Durgadasi", "H.Speoris"))
+
+p1 <- ggplot(stats, aes(x = reorder(Sample, Ho), y = Ho, fill = Species)) +
+  geom_bar(stat = "identity", width = 0.8) +
+  scale_fill_manual(values = species_colors, name = "Species") +
+  facet_wrap(~ Species, scales = "free_x") +
+  labs(
+    title    = "Observed Heterozygosity per Individual",
+    subtitle = "Ho = Heterozygous sites / Total genotyped sites",
+    x        = "Sample",
+    y        = "Observed Heterozygosity (Ho)"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    plot.title      = element_text(hjust = 0.5, face = "bold", size = 14),
+    plot.subtitle   = element_text(hjust = 0.5, color = "grey40"),
+    axis.text.x     = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 8),
+    strip.text      = element_text(face = "bold.italic"),
+    strip.background = element_rect(fill = "grey90"),
+    legend.position = "none"
+  )
+
+ggsave("het_per_individual.png", p1, width = 14, height = 5, dpi = 300)
+
+# ── Plot 2: Boxplot of Ho by species ──────────────────────────
+p2 <- ggplot(stats, aes(x = Species, y = Ho, fill = Species)) +
+  geom_boxplot(alpha = 0.7, outlier.shape = NA, width = 0.5) +
+  geom_jitter(aes(color = Species), width = 0.15, size = 2.5, alpha = 0.8) +
+  scale_fill_manual(values  = species_colors) +
+  scale_color_manual(values = species_colors) +
+  labs(
+    title    = "Observed Heterozygosity by Species",
+    x        = NULL,
+    y        = "Observed Heterozygosity (Ho)"
+  ) +
+  theme_bw(base_size = 13) +
+  theme(
+    plot.title      = element_text(hjust = 0.5, face = "bold", size = 14),
+    axis.text.x     = element_text(face = "bold.italic", size = 11),
+    legend.position = "none"
+  )
+
+ggsave("het_boxplot.png", p2, width = 7, height = 5, dpi = 300)
+
+# ── Plot 3: Ho vs He comparison per species ───────────────────
+he_long <- he_table %>%
+  select(Species, Ho = mean_Ho, He) %>%
+  pivot_longer(cols = c(Ho, He), names_to = "Metric", values_to = "Value")
+
+p3 <- ggplot(he_long, aes(x = Species, y = Value, fill = Metric)) +
+  geom_bar(stat = "identity", position = "dodge", width = 0.6) +
+  scale_fill_manual(values = c("Ho" = "#2196F3", "He" = "#FF5722"),
+                    name = "Metric") +
+  labs(
+    title    = "Observed (Ho) vs Expected (He) Heterozygosity",
+    subtitle = "He calculated using Nei's correction",
+    x        = NULL,
+    y        = "Heterozygosity"
+  ) +
+  theme_bw(base_size = 13) +
+  theme(
+    plot.title      = element_text(hjust = 0.5, face = "bold", size = 14),
+    plot.subtitle   = element_text(hjust = 0.5, color = "grey40"),
+    axis.text.x     = element_text(face = "bold.italic", size = 11),
+    legend.position = "right"
+  )
+
+ggsave("Ho_vs_He.png", p3, width = 8, height = 5, dpi = 300)
+
+# ── Plot 4: Fis per species ───────────────────────────────────
+p4 <- ggplot(he_table, aes(x = Species, y = Fis, fill = Species)) +
+  geom_bar(stat = "identity", width = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
+  scale_fill_manual(values = species_colors) +
+  labs(
+    title    = "Inbreeding Coefficient (Fis) by Species",
+    subtitle = "Positive Fis = inbreeding | Negative Fis = outbreeding",
+    x        = NULL,
+    y        = "Fis"
+  ) +
+  theme_bw(base_size = 13) +
+  theme(
+    plot.title      = element_text(hjust = 0.5, face = "bold", size = 14),
+    plot.subtitle   = element_text(hjust = 0.5, color = "grey40"),
+    axis.text.x     = element_text(face = "bold.italic", size = 11),
+    legend.position = "none"
+  )
+
+ggsave("Fis_barplot.png", p4, width = 7, height = 5, dpi = 300)
+
+cat("\nAll plots saved!\n")
+cat("Files: het_per_individual.png, het_boxplot.png, Ho_vs_He.png, Fis_barplot.png\n")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
