@@ -1,4 +1,6 @@
 
 
+conda create -n rtg-tools -c conda-forge -c bioconda rtg-tools
+
 
 
