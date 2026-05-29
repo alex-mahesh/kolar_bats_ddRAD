@@ -2,5 +2,21 @@
 
 conda create -n rtg-tools -c conda-forge -c bioconda rtg-tools
 
+## location of the filtered vcf file ##
+/home/alex/ddRAD/analysis/variant_filtering/filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_sampes_removed.vcf
+## location for it to be copied to ##
+/home/alex/ddRAD/analysis/heterozygosity
+
+## copying the file to the heterozygosity folder ##
+cp /home/alex/ddRAD/analysis/variant_filtering/filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_sampes_removed.vcf /home/alex/ddRAD/analysis/heterozygosity/
+
+conda activate rtg-tools
+# Run on the full VCF — gives per-sample het/hom counts
+
+rtg vcfstats --per-sample filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_sampes_removed.vcf > vcfstats_all.txt 2>&1
+
+rtg vcfstats filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_only_sampes_removed.vcf > vcfstats_all.txt 2>&1
+
+
 
 
