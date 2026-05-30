@@ -266,6 +266,26 @@ ggsave("Fis_barplot.png", p4, width = 7, height = 5, dpi = 300)
 cat("\nAll plots saved!\n")
 cat("Files: het_per_individual.png, het_boxplot.png, Ho_vs_He.png, Fis_barplot.png\n")
 
+##################################################################################################################################
+
+trying using plink as the above code gave error
+
+# copying the .bed .bim .fam files generated in Step 2 of the original PCA pipeline
+cp /home/alex/ddRAD/analysis/popgen/pca_data.* \
+   /home/alex/ddRAD/analysis/heterozygosity/
+
+plink --bfile pca_data \
+      --het \
+      --out het_results \
+      --allow-extra-chr
+
+This produces het_results.het with these columns:
+FID   IID   O(HOM)   E(HOM)   N(NM)   F
+Column       Meaning
+O(HOM)   Observed homozygous genotypes
+E(HOM)   Expected homozygous genotypes
+N(NM)    Total non-missing genotypes
+F        Inbreeding coefficient (Fis)
 
 
 
