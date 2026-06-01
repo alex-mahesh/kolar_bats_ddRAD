@@ -287,7 +287,166 @@ E(HOM)   Expected homozygous genotypes
 N(NM)    Total non-missing genotypes
 F        Inbreeding coefficient (Fis)
 
+## creating a new R script ##
+nano hetreozygosity2.R
+// paste the below code into it. 
 
+for (pkg in c("ggplot2", "dplyr", "tidyr")) {
+  if (!requireNamespace(pkg, quietly = TRUE))
+    install.packages(pkg, repos = "https://cloud.r-project.org")
+}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+# ── Species colours ────────────────────────────────────────────
+species_colors <- c(
+  "H.Hypophyllus" = "#E41A1C",
+  "H.Durgadasi"   = "#377EB8",
+  "H.Speoris"     = "#4DAF4A"
+)
+
+# ── Load PLINK het output ──────────────────────────────────────
+het <- read.table("het_results.het", header = TRUE)
+colnames(het) <- c("FID", "IID", "O_HOM", "E_HOM", "N_NM", "F")
+
+# ── Assign species from sample ID prefix ───────────────────────
+het$Species <- ifelse(grepl("^HH_", het$IID), "H.Hypophyllus",
+               ifelse(grepl("^HD_", het$IID), "H.Durgadasi",
+               ifelse(grepl("^HS_", het$IID), "H.Speoris", "Unknown")))
+
+het$Species <- factor(het$Species,
+                      levels = c("H.Hypophyllus", "H.Durgadasi", "H.Speoris"))
+
+# ── Calculate Ho and He per individual ────────────────────────
+# Ho = 1 - O(HOM)/N(NM)  → observed heterozygosity
+# He = 1 - E(HOM)/N(NM)  → expected heterozygosity
+het <- het %>%
+  mutate(
+    Ho = 1 - (O_HOM / N_NM),
+    He = 1 - (E_HOM / N_NM)
+  )
+
+# ── Per-species summary table ──────────────────────────────────
+summary_table <- het %>%
+  group_by(Species) %>%
+  summarise(
+    N       = n(),
+    mean_Ho = round(mean(Ho, na.rm = TRUE), 4),
+    sd_Ho   = round(sd(Ho,   na.rm = TRUE), 4),
+    se_Ho   = round(sd_Ho / sqrt(N), 4),
+    mean_He = round(mean(He, na.rm = TRUE), 4),
+    mean_F  = round(mean(F,  na.rm = TRUE), 4),   # Fis
+    .groups = "drop"
+  )
+
+cat("\n── Heterozygosity Summary ─────────────────────────────\n")
+print(summary_table)
+
+# Save tables
+write.csv(het,           "heterozygosity_per_sample.csv",  row.names = FALSE)
+write.csv(summary_table, "heterozygosity_summary.csv",     row.names = FALSE)
+cat("\nTables saved.\n")
+
+# ══════════════════════════════════════════════════════════════
+# PLOTS
+# ══════════════════════════════════════════════════════════════
+
+# ── Plot 1: Ho per individual faceted by species ───────────────
+p1 <- ggplot(het, aes(x = reorder(IID, Ho), y = Ho, fill = Species)) +
+  geom_bar(stat = "identity", width = 0.8) +
+  scale_fill_manual(values = species_colors) +
+  facet_wrap(~ Species, scales = "free_x") +
+  labs(
+    title    = "Observed Heterozygosity per Individual",
+    subtitle = "Ho = 1 - O(HOM) / N(NM)",
+    x        = "Sample",
+    y        = "Observed Heterozygosity (Ho)"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    plot.title       = element_text(hjust = 0.5, face = "bold", size = 14),
+    plot.subtitle    = element_text(hjust = 0.5, color = "grey40"),
+    axis.text.x      = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 8),
+    strip.text       = element_text(face = "bold.italic"),
+    strip.background = element_rect(fill = "grey90"),
+    legend.position  = "none"
+  )
+
+ggsave("het_per_individual.png", p1, width = 14, height = 5, dpi = 300)
+cat("Saved het_per_individual.png\n")
+
+# ── Plot 2: Boxplot of Ho by species ──────────────────────────
+p2 <- ggplot(het, aes(x = Species, y = Ho, fill = Species)) +
+  geom_boxplot(alpha = 0.7, outlier.shape = NA, width = 0.5) +
+  geom_jitter(aes(color = Species), width = 0.15, size = 2.5, alpha = 0.9) +
+  scale_fill_manual(values  = species_colors) +
+  scale_color_manual(values = species_colors) +
+  labs(
+    title = "Observed Heterozygosity by Species",
+    x     = NULL,
+    y     = "Observed Heterozygosity (Ho)"
+  ) +
+  theme_bw(base_size = 13) +
+  theme(
+    plot.title      = element_text(hjust = 0.5, face = "bold", size = 14),
+    axis.text.x     = element_text(face = "bold.italic", size = 11),
+    legend.position = "none"
+  )
+
+ggsave("het_boxplot.png", p2, width = 7, height = 5, dpi = 300)
+cat("Saved het_boxplot.png\n")
+
+# ── Plot 3: Ho vs He per species ──────────────────────────────
+he_long <- summary_table %>%
+  select(Species, Ho = mean_Ho, He = mean_He) %>%
+  pivot_longer(cols = c(Ho, He),
+               names_to = "Metric", values_to = "Value")
+
+p3 <- ggplot(he_long, aes(x = Species, y = Value, fill = Metric)) +
+  geom_bar(stat = "identity", position = "dodge", width = 0.6) +
+  scale_fill_manual(values = c("Ho" = "#2196F3", "He" = "#FF5722"),
+                    name = "Metric") +
+  labs(
+    title = "Observed (Ho) vs Expected (He) Heterozygosity",
+    x     = NULL,
+    y     = "Heterozygosity"
+  ) +
+  theme_bw(base_size = 13) +
+  theme(
+    plot.title  = element_text(hjust = 0.5, face = "bold", size = 14),
+    axis.text.x = element_text(face = "bold.italic", size = 11)
+  )
+
+ggsave("Ho_vs_He.png", p3, width = 8, height = 5, dpi = 300)
+cat("Saved Ho_vs_He.png\n")
+
+# ── Plot 4: Fis (F) per species ───────────────────────────────
+p4 <- ggplot(summary_table, aes(x = Species, y = mean_F, fill = Species)) +
+  geom_bar(stat = "identity", width = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
+  scale_fill_manual(values = species_colors) +
+  labs(
+    title    = "Inbreeding Coefficient (Fis) by Species",
+    subtitle = "Positive = inbreeding  |  Negative = outbreeding",
+    x        = NULL,
+    y        = "Mean Fis (F)"
+  ) +
+  theme_bw(base_size = 13) +
+  theme(
+    plot.title      = element_text(hjust = 0.5, face = "bold", size = 14),
+    plot.subtitle   = element_text(hjust = 0.5, color = "grey40"),
+    axis.text.x     = element_text(face = "bold.italic", size = 11),
+    legend.position = "none"
+  )
+
+ggsave("Fis_barplot.png", p4, width = 7, height = 5, dpi = 300)
+cat("Saved Fis_barplot.png\n")
+
+cat("\nAll done!\n")
+
+## run the above code ##
+Rscript heterozygosity2.R
 
 
 
