@@ -45,9 +45,12 @@ cp pca_data.fam my_data_admix.fam
 // Should show numbers like 1, 2, 3 ... instead of CM063088.1 etc.
 cut -f1 my_data_admix.bim | sort -u
 
-## Run ADMIXTURE for each K with 10-fold cross-validation ## 
+##### Run ADMIXTURE for each K with 10-fold cross-validation ###### 
 // running admixture on screen as it takes time
 screen -S admixture // creates a screen
+// once you are inside the screen - CTRL A+D to detach from the screen
+//                                - CTRL D to exit. This stops the analysis and screen gets closed
+
 
 ## installing admixture ##
 conda create -n admixture -c conda-forge -c bioconda admixture
