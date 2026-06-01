@@ -54,6 +54,64 @@ grep -vc "^#" filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only
 
 // 15082 -number of variants remaining.
 
+###############################################################################################################################################
+###############################################################################################################################################
+
+filtered_mac3_hwe_imiss_0.9_miss_70.recode.vcf
+// this is the vcf file that we will be proceeding with.
+
+# locationn of the vcf file #
+/home/alex/ddRAD/analysis/variant_filtering
+
+# counting the no of variants in the vcf file #
+grep -vc "^#" filtered_mac3_hwe_imiss_0.9_miss_70.recode.vcf
+// 3857 -no of variants
+#### Use site mean depth filter to get informaion about mean depth at each variant site ####
+
+vcftools --vcf filtered_mac3_hwe_imiss_0.9_miss_70.recode.vcf --site-mean-depth --out depth
+// depth.ldepth.mean - this file gets generated
+
+#### Using site mean depth filter to get informaion about mean depth at each variant site ####
+#find the percentile depth between 0.05 and 0.975, the middle 95 percentile.
+#below 0.05 because low conf
+#above 97.5 because of presence of repetitive regions or less complex regions
+
+conda activate R
+press"R" (to open R in the server)
+
+depth_data <- read.table("depth.ldepth.mean", header = TRUE)
+depths <- depth_data$MEAN_DEPTH
+lower_bound <- quantile(depths, 0.025, na.rm = TRUE)
+upper_bound <- quantile(depths, 0.975, na.rm = TRUE)
+cat("Middle 95% range:", lower_bound, "to", upper_bound, "\n")
+
+//after running this code in R it will give a lower bound and upper bound in the terminal itself.
+Middle 95% range: 1.28333 to 15.66002
+
+### Apply filters to keep only the variants that have depth values lying in the above range ###
+
+conda activate vcftools
+
+vcftools --vcf filtered_mac3_hwe_imiss_0.9_miss_70.recode.vcf --min-meanDP 1.28333 --max-meanDP 15.66002 \
+--recode --out filtered_mac3_hwe_imiss_0.9_miss_70_mid95percentile
+
+//After filtering, kept 3673 out of a possible 3857 Sites
+// filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile.recode.vcf -this is the final vcf file that we have obtained after all the filtering.
+
+#### Removing the sex chromosome ###
+## removing the X chromosome from the vcf file ##
+
+bcftools view \
+    --targets ^CM063105.1 \
+    filtered_mac3_hwe_imiss_0.9_miss_70_mid95percentile.recode.vcf \
+    -Oz -o filtered_mac3_hwe_imiss_0.9_miss_70_mid95percentile_autosomes_only.vcf
+
+## counting the number of remaining variants in the vcf file ##
+
+grep -vc "^#" filtered_mac3_hwe_imiss_0.9_miss_70_mid95percentile_autosomes_only.vcf
+
+// 3557 -number of variants remaining.
+
 
 
 
