@@ -5,26 +5,26 @@
 /home/alex/ddRAD/analysis/popgen
 
 ## copying the file to the popgen folder ##
-cp /home/alex/ddRAD/analysis/variant_filtering/filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed.vcf /home/alex/ddRAD/analysis/popgen/
+cp /home/alex/ddRAD/analysis/variant_filtering/filtered_mac3_hwe_imiss_0.9_miss_70_mid95percentile_autosomes_only_sampes_removed.vcf /home/alex/ddRAD/analysis/popgen/
 
 ## changing the names of the samples in the vcf file ## (I have removed the potentially mislabelled samples)
 
 bcftools reheader \
 -s rename_samples.txt \
--o filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed_renamed.vcf \
-filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed.vcf
+-o filtered_mac3_hwe_imiss_0.9_miss_70_mid95percentile_autosomes_only_sampes_removed_renamed.vcf \
+filtered_mac3_hwe_imiss_0.9_miss_70_mid95percentile_autosomes_only_sampes_removed.vcf
 
 ## converting vcf to plink format ##
 
-plink --vcf filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed_renamed.vcf \
+plink --vcf filtered_mac3_hwe_imiss_0.9_miss_70_mid95percentile_autosomes_only_sampes_removed_renamed.vcf \
       --make-bed \
       --out pca_data \
       --allow-extra-chr \
       --set-missing-var-ids @:# \
       --double-id
 
-// Total genotyping rate is 0.506876.
-15082 variants and 54 people pass filters and QC.
+// Total genotyping rate is 0.616239.
+3557 variants and 54 people pass filters and QC.
 Note: No phenotypes present. -got this msg in terminal
 //  pca_data.bim  pca_data.log pca_data.bed pca_data.fam  pca_data.nosex - these files get generated
 
@@ -218,8 +218,8 @@ nano remove_samples.txt
 
 bcftools view \
     -S ^remove_samples.txt \
-    filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only.vcf \
-    -Ov -o filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed.vcf
+    filtered_mac3_hwe_imiss_0.9_miss_70_mid95percentile_autosomes_only.vcf \
+    -Ov -o filtered_mac3_hwe_imiss_0.9_miss_70_mid95percentile_autosomes_only_sampes_removed.vcf
 
 // What this means
 -s        = select samples
@@ -235,7 +235,7 @@ bcftools query -l filtered_mac3_hwe_imiss_0.9_miss_30_mid95percentile_autosomes_
 
 
 # or count them #
-bcftools query -l filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed.vcf | wc -l
+bcftools query -l filtered_mac3_hwe_imiss_0.9_miss_70_mid95percentile_autosomes_only_sampes_removed.vcf | wc -l
 
 // initally there were 60 samples, now only 54 are remaining
 // now we need to redo the PCA and admixture using this vcf file.
