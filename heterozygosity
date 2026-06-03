@@ -448,6 +448,95 @@ cat("\nAll done!\n")
 ## run the above code ##
 Rscript heterozygosity.R
 
+//////////////////////////////////////////////////////////
+
+Observed heterozygosity (Ho) is simply the proportion of individuals that are heterozygous at a locus.
+The formula is:
+
+HO = Total number of individuals / Number of heterozygous individuals
+	​
+Example 1: Single SNP
+Suppose you have 10 individuals genotyped at a SNP:
+
+Individual	Genotype
+1	          AA
+2	          AA
+3	          AT
+4	          AT
+5	          AT
+6	          TT
+7	          TT
+8	          AT
+9	          AA
+10	          TT
+
+Count heterozygotes:
+AT = 4 individuals
+
+Total individuals: 10
+
+Therefore: HO = 4/10 =0.4
+So the observed heterozygosity is 0.40.
+
+## Example 2: Multiple SNPs ##
+
+In population genomic datasets (ddRAD, WGS, etc.), Ho is usually calculated across many loci.
+Suppose:
+
+SNP	     Ho
+SNP1	0.40
+SNP2	0.20
+SNP3	0.50
+SNP4	0.30
+
+Average Ho: (0.40+0.20+0.50+0.30) /4 =0.35
+which means Population Ho = 0.35
+
+## Individual heterozygosity ##
+Sometimes researchers calculate heterozygosity for each individual.
+For example:
+
+SNP	Genotype
+1	AA
+2	AT
+3	TT
+4	AT
+5	AT
+
+The individual is heterozygous at: 3 loci out of 5 loci
+
+Therefore: HO = 3/5	​= 0.60
+This means 60% of the genotyped loci are heterozygous in that individual.
+
+## How PLINK calculates it ##
+
+If you're using PLINK:
+
+plink --bfile pca_data --het --out heterozygosity
+
+PLINK reports:
+
+Column	        Meaning
+O(HOM)	 Observed homozygous genotypes
+E(HOM)	 Expected homozygous genotypes
+F	Inbreeding coefficient
+
+The observed heterozygosity can be calculated as: HO = (N(OBS)−O(HOM))/ N(OBS)
+where:
+N(OBS) = number of non-missing genotypes
+O(HOM) = observed homozygous genotypes
+
+## Example from a PLINK .het file ##
+Suppose:
+N(NM) = 10000
+O(HOM) = 7500
+Then: HO = (10000−7500)/1000 ==0.25
+So 25% of loci are heterozygous.
+
+	​
+
+
+
 
 
 
