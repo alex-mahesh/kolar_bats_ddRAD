@@ -288,7 +288,7 @@ N(NM)    Total non-missing genotypes
 F        Inbreeding coefficient (Fis)
 
 ## creating a new R script ##
-nano hetreozygosity2.R
+nano hetreozygosity.R
 // paste the below code into it. 
 
 for (pkg in c("ggplot2", "dplyr", "tidyr")) {
@@ -446,7 +446,7 @@ cat("Saved Fis_barplot.png\n")
 cat("\nAll done!\n")
 
 ## run the above code ##
-Rscript heterozygosity2.R
+Rscript heterozygosity.R
 
 
 
