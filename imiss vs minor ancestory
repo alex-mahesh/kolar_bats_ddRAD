@@ -1,0 +1,56 @@
+
+## checking the missingness in every sample ##
+
+plink --bfile pca_data \
+      --allow-extra-chr \
+      --missing \
+      --out pca_data
+
+
+// pca_data.imiss, pca_data.lmiss, pca_data.log, pca_data.nosex - these files get generated.
+the .imiss file contains the following details
+FID (Family ID), IID (Individual ID) The sample name; MISS_PHENO -Whether the phenotype is missing. (N = phenotype present,Y = phenotype missing)
+
+N_MISS -Number of missing genotypes for that individual.
+Example:
+N_MISS = 125
+means this sample has no genotype call at 125 SNPs.
+
+N_GENO -Total number of genotypes examined.
+Example:
+N_GENO = 5000
+means the individual was evaluated at 5000 SNP loci.
+
+F_MISS -Fraction (proportion) of missing genotypes.
+FMISS​= ​N_MISS / N_GENO 
+
+So:
+F_MISS = 0.025
+means:
+2.5% of SNPs are missing (i.e is there is 2.5 % missing data)
+97.5% of SNPs have genotype calls
+​
+## How to interpret F_MISS ##
+F_MISS	     Interpretation
+< 0.01	       Excellent
+0.01–0.05	     Very good
+0.05–0.10	     Acceptable
+> 0.10	       Often removed
+> 0.20	     Usually poor-quality sample​
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
