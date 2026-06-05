@@ -1,0 +1,43 @@
+
+ cat pca_data.fam | wc -l
+// 54 samples
+
+ cat pca_data.fam | sort
+
+vcftools --vcf filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed_renamed.vcf --plink --out filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed_renamed
+
+ls -ltrh *.ped
+// -rw-rw-r-- 1 alex alex 3.2M Jun  4 12:09 filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed_renamed.ped -got this file
+
+plink --file filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed_renamed --make-bed --out ^C
+
+plink --file filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed_renamed --make-bed --out filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed_renamed
+
+## running admixture ##
+ admixture filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed_renamed 2
+
+## getting the list of files ##
+ls -ltrh filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed_renamed*
+
+less -S filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed_renamed.3.Q
+
+paste filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed_renamed.fam filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed_renamed.3.Q
+
+## copying the data to an excel sheet ##
+paste filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed_renamed.fam filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed_renamed.3.Q > filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed_renamed.K3.xls
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
