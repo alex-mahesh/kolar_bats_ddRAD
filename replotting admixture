@@ -1,0 +1,147 @@
+
+
+
+nano admixture2_redo.R
+
+# ==========================================================
+# ADMIXTURE K=3 Plot with Sample Labels and Species Groups
+# ==========================================================
+
+# Install packages if needed
+required_packages <- c("ggplot2", "reshape2", "dplyr")
+
+for(pkg in required_packages){
+  if(!require(pkg, character.only = TRUE)){
+    install.packages(pkg, repos = "https://cloud.r-project.org")
+    library(pkg, character.only = TRUE)
+  }
+}
+
+# ----------------------------------------------------------
+# Read ADMIXTURE Q matrix
+# ----------------------------------------------------------
+
+Q <- read.table("my_data_admix.3.Q")
+
+# ----------------------------------------------------------
+# Read FAM file
+# ----------------------------------------------------------
+
+fam <- read.table("my_data_admix.fam")
+
+# Column 1 = Species/Population ID (HH, HD, HS)
+# Column 2 = Sample ID
+
+species <- fam$V1
+samples <- fam$V2
+
+# Add metadata to Q matrix
+Q$Species <- species
+Q$Sample <- samples
+
+# ----------------------------------------------------------
+# Sort samples by species
+# ----------------------------------------------------------
+
+ord <- order(Q$Species)
+
+Q <- Q[ord, ]
+
+# Store ordered sample names
+sample_order <- Q$Sample
+
+# ----------------------------------------------------------
+# Convert to long format
+# ----------------------------------------------------------
+
+Q_long <- melt(
+  Q,
+  id.vars = c("Species", "Sample"),
+  variable.name = "Cluster",
+  value.name = "Ancestry"
+)
+
+Q_long$Sample <- factor(
+  Q_long$Sample,
+  levels = sample_order
+)
+
+# ----------------------------------------------------------
+# Species boundaries
+# ----------------------------------------------------------
+
+species_counts <- table(Q$Species)
+
+boundaries <- cumsum(species_counts)
+
+# ----------------------------------------------------------
+# Plot
+# ----------------------------------------------------------
+
+p <- ggplot(
+  Q_long,
+  aes(
+    x = Sample,
+    y = Ancestry,
+    fill = Cluster
+  )
+) +
+  geom_bar(
+    stat = "identity",
+    width = 1
+  ) +
+
+  geom_vline(
+    xintercept = boundaries[-length(boundaries)] + 0.5,
+    linetype = "dashed",
+    linewidth = 0.7
+  ) +
+
+  theme_bw() +
+
+  labs(
+    title = "ADMIXTURE Analysis (K = 3)",
+    x = "Samples",
+    y = "Ancestry Proportion"
+  ) +
+
+  theme(
+    axis.text.x = element_text(
+      angle = 90,
+      hjust = 1,
+      vjust = 0.5,
+      size = 6
+    ),
+
+    panel.grid = element_blank(),
+
+    plot.title = element_text(
+      hjust = 0.5,
+      face = "bold"
+    )
+  )
+
+print(p)
+
+# ----------------------------------------------------------
+# Save figure
+# ----------------------------------------------------------
+
+ggsave(
+  "admixture_K3_labeled.png",
+  plot = p,
+  width = 14,
+  height = 6,
+  dpi = 300
+)
+
+# ----------------------------------------------------------
+# Print species counts
+# ----------------------------------------------------------
+
+cat("\nIndividuals per species:\n")
+print(species_counts)
+
+
+
+
