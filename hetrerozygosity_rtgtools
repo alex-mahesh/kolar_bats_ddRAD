@@ -1,0 +1,71 @@
+
+
+## copying the file to the heterozygosity folder ##
+cp /home/alex/ddRAD/analysis/popgen/filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed_renamed.vcf /home/alex/ddRAD/analysis/heterozygosity_rtgtools/
+
+Step 1: Prepare Your VCF File
+Your VCF must be bgzipped and tabix-indexed:
+Sort VCF (if not already sorted)
+
+bcftools sort filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed_renamed.vcf -o filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed_renamed_sorted.vcf
+
+# Compress and index
+bgzip filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed_renamed_sorted.vcf
+
+# indexing the .vcf.gz file  
+conda create -n tabix -c conda-forge -c bioconda tabix
+
+tabix -p vcf filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed_renamed_sorted.vcf.gz
+  
+//filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed_renamed_sorted.vcf.gz.tbi- this file gets created.
+
+Step 2: Run RTG vcfstats Per Sample
+# To run for ALL samples at once and save output
+rtg vcfstats filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed_renamed_sorted.vcf.gz > all_sample_stats.txt
+
+Step 3: Batch Loop — Run for All Samples
+Since you have many samples (HD, HH, HS groups), automate it:
+# Extract sample names from VCF header
+
+bcftools query -l filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed_renamed_sorted.vcf.gz > sample_list.txt
+
+# Loop through each sample and compute stats
+while read sample; do
+    echo "Processing: $sample"
+    rtg vcfstats --sample "$sample" filtered_mac3_hwe_imiss_0.9_miss_60_mid95percentile_autosomes_only_sampes_removed_renamed_sorted.vcf.gz > "stats_${sample}.txt"
+done < sample_list.txt
+
+// stats_HH_7.txt -this .txt file gets created for all the 54 samples.
+
+Step 4: Extract Heterozygosity Values
+# Extract Het/Hom ratio and counts from all output files
+for f in stats_*.txt; do
+    sample=$(echo "$f" | sed 's/stats_//;s/.txt//')
+    
+    # Extract from "Total Het/Hom ratio : 0.97 (2338/2406)"
+    het=$(grep "Total Het/Hom ratio" "$f" | grep -oP '\(\K[0-9]+(?=/)')
+    hom=$(grep "Total Het/Hom ratio" "$f" | grep -oP '(?<=/)[0-9]+(?=\))')
+    
+    echo -e "$sample\t$het\t$hom"
+done > heterozygosity_summary.txt
+
+# Add header
+sed -i '1s/^/Sample\tHet_count\tHom_count\n/' heterozygosity_summary.txt
+
+cat heterozygosity_summary.txt
+
+## Calculating Observed heterozygosity (Ho)
+awk 'NR>1 {
+    total = $2 + $3
+    if (total > 0) ho = $2/total
+    else ho = 0
+    printf "%s\t%s\t%s\t%.4f\n", $1, $2, $3, ho
+}' heterozygosity_summary.txt > Ho_per_sample.txt
+
+sed -i '1s/^/Sample\tHet\tHom\tHo\n/' Ho_per_sample.txt
+
+cat Ho_per_sample.txt
+  
+
+
+
