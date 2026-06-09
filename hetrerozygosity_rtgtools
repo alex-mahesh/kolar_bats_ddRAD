@@ -134,3 +134,82 @@ ggsave("Ho_per_sample_sorted.png",
        height = 6,
        dpi = 300)
 
+############################################### mean heterozygosity per species #########################################
+
+library(ggplot2)
+
+# Read data
+data <- read.table("Ho_per_sample.txt",
+                   header = TRUE,
+                   stringsAsFactors = FALSE)
+
+# Assign species based on sample names
+data$Species <- ifelse(grepl("^HD_", data$Sample), "H. durgadasi",
+                ifelse(grepl("^HS_", data$Sample), "H. speoris",
+                ifelse(grepl("^HH_", data$Sample), "H. hypophyllus", NA)))
+
+# Set order of species on x-axis
+data$Species <- factor(data$Species,
+                       levels = c("H. hypophyllus",
+                                  "H. durgadasi",
+                                  "H. speoris"))
+
+# Plot
+p <- ggplot(data,
+            aes(x = Species,
+                y = Ho,
+                fill = Species)) +
+
+  geom_boxplot(alpha = 0.7,
+               width = 0.5,
+               outlier.shape = NA) +
+
+  geom_jitter(width = 0.12,
+              size = 3,
+              alpha = 0.8,
+              aes(color = Species)) +
+
+  labs(title = "Observed Heterozygosity by Species",
+       x = "",
+       y = "Observed Heterozygosity (Ho)") +
+
+  theme_classic(base_size = 16) +
+
+  theme(
+    legend.position = "none",
+    plot.title = element_text(
+      hjust = 0.5,
+      face = "bold"
+    ),
+    axis.text.x = element_text(
+      face = "italic",
+      size = 14
+    )
+  )
+
+p <- p +
+  scale_fill_manual(values = c(
+    "H. hypophyllus" = "#e41a1c",
+    "H. durgadasi"   = "#377eb8",
+    "H. speoris"     = "#4daf4a"
+  )) +
+  scale_color_manual(values = c(
+    "H. hypophyllus" = "#e41a1c",
+    "H. durgadasi"   = "#377eb8",
+    "H. speoris"     = "#4daf4a"
+  ))
+
+print(p)
+
+ggsave("Observed_Heterozygosity_Boxplot.png",
+       p,
+       width = 10,
+       height = 7,
+       dpi = 300)
+
+
+
+
+
+
+
