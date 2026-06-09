@@ -66,6 +66,71 @@ sed -i '1s/^/Sample\tHet\tHom\tHo\n/' Ho_per_sample.txt
 
 cat Ho_per_sample.txt
   
+### plotting the graphs ###
 
+## creating an R script
+nano heterozygosity_per_sample.R
 
+library(ggplot2)
+library(dplyr)
+
+# Read data
+data <- read.table("Ho_per_sample.txt",
+                   header = TRUE,
+                   stringsAsFactors = FALSE)
+
+# Assign species from sample names
+data$Species <- ifelse(grepl("^HD_", data$Sample), "H. durgadasi",
+                ifelse(grepl("^HS_", data$Sample), "H. speoris",
+                ifelse(grepl("^HH_", data$Sample), "H. hypophyllus", NA)))
+
+# Sort samples by Ho within species
+data <- data %>%
+  group_by(Species) %>%
+  arrange(Ho, .by_group = TRUE) %>%
+  mutate(Order = row_number()) %>%
+  ungroup()
+
+# Create a unique plotting label
+data$PlotLabel <- paste(data$Species, data$Sample, sep = "__")
+
+# Preserve the order
+data$PlotLabel <- factor(data$PlotLabel,
+                         levels = data$PlotLabel)
+
+# Create a lookup table for original sample names
+label_map <- setNames(data$Sample, data$PlotLabel)
+
+# Plot
+p <- ggplot(data,
+            aes(x = PlotLabel,
+                y = Ho,
+                fill = Species)) +
+  geom_col() +
+  facet_grid(~Species,
+             scales = "free_x",
+             space = "free_x") +
+  scale_x_discrete(labels = label_map) +
+  theme_bw() +
+  labs(
+    x = "Sample",
+    y = "Observed Heterozygosity (Ho)",
+    title = "Observed Heterozygosity per Sample"
+  ) +
+  theme(
+    axis.text.x = element_text(
+      angle = 90,
+      hjust = 1,
+      size = 8
+    ),
+    legend.position = "none"
+  )
+
+print(p)
+
+ggsave("Ho_per_sample_sorted.png",
+       p,
+       width = 14,
+       height = 6,
+       dpi = 300)
 
